@@ -10,6 +10,12 @@ BOOTLABEL="#{BOOTLABEL:-/boot}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
 
+# Make interactive-execution more-verbose unless explicitly told not to
+if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
+then
+   DEBUG="true"
+fi
+
 
 # Error handler function
 function err_exit {
@@ -169,17 +175,16 @@ function CarveLVM {
       (( ITER+=1 ))
    done
 
-   # shellcheck disable=SC2053
-   if [[ ${FSTYPE} == ext3 ]] || [[ ${FSTYPE} == ext4 ]]
+   if [[ ${FSTYPE} == ext[34] ]]
    then
-      if [[ $( e2label "${CHROOTDEV}${PARTPRE}1" ) != ${BOOTLABEL} ]]
+      if [[ $( e2label "${CHROOTDEV}${PARTPRE}1" ) != "${BOOTLABEL}" ]]
       then
          e2label "${CHROOTDEV}${PARTPRE}1" "${BOOTLABEL}" || \
             err_exit "Failed to apply desired label to ${CHROOTDEV}${PARTPRE}1"
       fi
    elif [[ ${FSTYPE} == xfs ]]
    then
-      if [[ $( xfs_admin -l "${CHROOTDEV}${PARTPRE}1"  | sed -e 's/"$//' -e 's/^.*"//' ) != ${BOOTLABEL} ]]
+      if [[ $( xfs_admin -l "${CHROOTDEV}${PARTPRE}1"  | sed -e 's/"$//' -e 's/^.*"//' ) != "${BOOTLABEL}" ]]
       then
          xfs_admin -L "${CHROOTDEV}${PARTPRE}1" "${BOOTLABEL}" || \
             err_exit "Failed to apply desired label to ${CHROOTDEV}${PARTPRE}1"
@@ -197,7 +202,7 @@ function CarveBare {
 
    # Lay down the base partitions
    parted -s "${CHROOTDEV}" -- mklabel msdos mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
-      mkpart primary "${FSTYPE}" ${BOOTDEVSZ} 100%
+      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100%
 
    # Create FS on partitions
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${BOOTLABEL}" "${CHROOTDEV}${PARTPRE}1"
@@ -336,6 +341,12 @@ do
    esac
 done
 
+# Bail if not root
+if [[ ${EUID} != 0 ]]
+then
+   err_exit "Must be root to execute disk-carving actions"
+fi
+
 # See if our carve-target is an NVMe
 if [[ ${CHROOTDEV} =~ /dev/nvme ]]
 then
@@ -348,13 +359,13 @@ fi
 if [[ -z ${BOOTLABEL+xxx} ]]
 then
    LogBrk 1 "Cannot continue without 'bootlabel' being specified. Aborting..."
-elif [[ ! -z ${ROOTLABEL+xxx} ]] && [[ ! -z ${VGNAME+xxx} ]]
+elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
 then
    LogBrk 1 "The 'rootlabel' and 'vgname' arguments are mutually exclusive. Exiting."
-elif [[ -z ${ROOTLABEL+xxx} ]] && [[ ! -z ${VGNAME+xxx} ]]
+elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
 then
    CarveLVM
-elif [[ ! -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
    CarveBare
 fi
