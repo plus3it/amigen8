@@ -1,25 +1,41 @@
 #!/bin/bash
+set -eu -o pipefail
 #
 # Script to automate basic setup of CHROOT device
 #
 #################################################################
 PROGNAME=$(basename "$0")
-BOOTDEVSZ="500m"
+BOOTDEVSZ="${BOOTDEVSZ:-500m}"
+BOOTLABEL="#{BOOTLABEL:-/boot}"
+DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
 
-# Function-abort hooks
-trap "exit 1" TERM
-export TOP_PID=$$
 
-# Error-logging
+# Error handler function
 function err_exit {
-   echo "${1}" > /dev/stderr
-   logger -t "${PROGNAME}" -p kern.crit "${1}"
-   exit 1
+   local ERRSTR
+   local SCRIPTEXIT
+
+   ERRSTR="${1}"
+   SCRIPTEXIT="${2:-1}"
+
+   if [[ ${DEBUG} == true ]]
+   then
+      # Our output channels
+      logger -i -t "${PROGNAME}" -p kern.crit -s -- "${ERRSTR}"
+   else
+      logger -i -t "${PROGNAME}" -p kern.crit -- "${ERRSTR}"
+   fi
+
+   exit "${SCRIPTEXIT}"
 }
+
 
 # Print out a basic usage message
 function UsageMsg {
+   local SCRIPTEXIT
+   SCRIPTEXIT="${1:-1}"
+
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
@@ -46,7 +62,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--rootlabel' 'See "-r" short-option'
       printf '\t%-20s%s\n' '--vgname' 'See "-v" short-option'
    )
-   exit 1
+   exit "${SCRIPTEXIT}"
 }
 
 # Partition as LVM
@@ -269,8 +285,9 @@ do
             esac
             ;;
       -h|--help)
-            UsageMsg
-            ;;      -p|--partitioning)
+            UsageMsg 0
+            ;;
+      -p|--partitioning)
             case "$2" in
                "")
                   LogBrk 1"Error: option required but not specified"
@@ -318,3 +335,26 @@ do
          ;;
    esac
 done
+
+# See if our carve-target is an NVMe
+if [[ ${CHROOTDEV} =~ /dev/nvme ]]
+then
+   PARTPRE="p"
+else
+   PARTPRE=""
+fi
+
+# Ensure BOOTLABEL has been specified
+if [[ -z ${BOOTLABEL+xxx} ]]
+then
+   LogBrk 1 "Cannot continue without 'bootlabel' being specified. Aborting..."
+elif [[ ! -z ${ROOTLABEL+xxx} ]] && [[ ! -z ${VGNAME+xxx} ]]
+then
+   LogBrk 1 "The 'rootlabel' and 'vgname' arguments are mutually exclusive. Exiting."
+elif [[ -z ${ROOTLABEL+xxx} ]] && [[ ! -z ${VGNAME+xxx} ]]
+then
+   CarveLVM
+elif [[ ! -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+then
+   CarveBare
+fi
