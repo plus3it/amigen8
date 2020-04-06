@@ -5,7 +5,7 @@
 #################################################################
 PROGNAME=$(basename "$0")
 BOOTDEVSZ="500m"
-FSTYPE="${FSTYPE:-ext4}"
+FSTYPE="${FSTYPE:-xfs}"
 
 # Function-abort hooks
 trap "exit 1" TERM
@@ -188,3 +188,133 @@ function CarveBare {
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" "${CHROOTDEV}${PARTPRE}2"
 }
 
+
+######################
+## Main program-flow
+######################
+OPTIONBUFR=$( getopt \
+  -o b:B:d:f:hp:r:v: \
+  --long bootlabel:,--boot-size:,disk:,fstype:,help,partitioning:,rootlabel:,vgname: \
+  -n "${PROGNAME}" -- "$@")
+
+eval set -- "${OPTIONBUFR}"
+
+###################################
+# Parse contents of ${OPTIONBUFR}
+###################################
+while true
+do
+   case "$1" in
+      -B|--boot-size)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  BOOTDEVSZ=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -b|--bootlabel)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  BOOTLABEL=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -d|--disk)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  CHROOTDEV=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -f|--fstype)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               ext3|ext4)
+                  FSTYPE=${2}
+                  MKFSFORCEOPT="-F"
+                  shift 2;
+                  ;;
+               xfs)
+                  FSTYPE=${2}
+                  MKFSFORCEOPT="-f"
+                  shift 2;
+                  ;;
+               *)
+                  LogBrk 1 "Error: unrecognized/unsupported FSTYPE. Aborting..."
+                  shift 2;
+                  exit 1
+                  ;;
+            esac
+            ;;
+      -h|--help)
+            UsageMsg
+            ;;      -p|--partitioning)
+            case "$2" in
+               "")
+                  LogBrk 1"Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  GEOMETRYSTRING=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -r|--rootlabel)
+            case "$2" in
+               "")
+                  LogBrk 1"Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  ROOTLABEL=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;      -v|--vgname)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+               VGNAME=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      --)
+         shift
+         break
+         ;;
+      *)
+         LogBrk 1 "Internal error!"
+         exit 1
+         ;;
+   esac
+done
