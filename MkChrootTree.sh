@@ -119,25 +119,25 @@ function DoLvmMounts {
    done
 
    # Ensure all LVM volumes are active
-   vgchange -a y "${VGNAME}" || err_out 2 "Failed to activate LVM"
+   vgchange -a y "${VGNAME}" || err_exit "Failed to activate LVM"
 
    # Mount volumes
    for MOUNTPT in $( echo "${!MOUNTINFO[*]}" | tr " " "\n" | sort )
    do
 
       # Ensure mountpoint exists
-      if [[ ! -d ${ALTROOT}/${MOUNTPT} ]]
+      if [[ ! -d ${CHROOTMNT}/${MOUNTPT} ]]
       then
-          install -dDm 000755 "${ALTROOT}/${MOUNTPT}"
+          install -dDm 000755 "${CHROOTMNT}/${MOUNTPT}"
       fi
 
       # Mount the filesystem
       if [[ ${MOUNTPT} == /* ]]
       then
-         echo "Mounting '${ALTROOT}${MOUNTPT}'..."
+         echo "Mounting '${CHROOTMNT}${MOUNTPT}'..."
          mount -t "${DEVFSTYP}" "/dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}" \
-           "${ALTROOT}${MOUNTPT}" || \
-             err_out 1 "Unable to mount /dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}"
+           "${CHROOTMNT}${MOUNTPT}" || \
+             err_exit "Unable to mount /dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}"
       else
          echo "Skipping '${MOUNTPT}'..."
       fi
@@ -274,3 +274,14 @@ then
 else
    DoLvmMounts
 fi
+
+# Ensure build-target /boot mountpoint exists
+if [[ ! -d ${CHROOTMNT}/boot ]]
+then
+   install -Ddm 000755 "${CHROOTMNT}/boot" || \
+     err_exit "Failed creating ${CHROOTMNT}/boot"
+fi
+
+# Mount build-target /boot filesystem
+mount mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}1" "${CHROOTMNT}/boot" || \
+  err_exit "Failed mounting ${CHROOTMNT}/boot"
