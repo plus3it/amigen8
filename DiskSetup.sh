@@ -105,7 +105,7 @@ function CarveLVM {
    parted -s "${CHROOTDEV}" -- mktable gpt \
      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
-     set 1 boot on \
+     set 1 bios_grub on \
      set 2 lvm
 
    # Gather info to diagnose seeming /boot race condition
@@ -215,7 +215,7 @@ function CarveBare {
 ######################
 OPTIONBUFR=$( getopt \
   -o b:B:d:f:hp:r:v: \
-  --long bootlabel:,--boot-size:,disk:,fstype:,help,partitioning:,rootlabel:,vgname: \
+  --long bootlabel:,boot-size:,disk:,fstype:,help,partition-string:,rootlabel:,vgname: \
   -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -292,7 +292,7 @@ do
       -h|--help)
             UsageMsg 0
             ;;
-      -p|--partitioning)
+      -p|--partition-string)
             case "$2" in
                "")
                   LogBrk 1"Error: option required but not specified"
