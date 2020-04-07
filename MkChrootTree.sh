@@ -138,12 +138,12 @@ function DoLvmMounts {
       # Mount the filesystem
       if [[ ${MOUNTPT} == /* ]]
       then
-         echo "Mounting '${CHROOTMNT}${MOUNTPT}'..."
+         err_exit "Mounting '${CHROOTMNT}${MOUNTPT}'..." NONE
          mount -t "${FSTYPE}" "/dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}" \
            "${CHROOTMNT}${MOUNTPT}" || \
              err_exit "Unable to mount /dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}"
       else
-         echo "Skipping '${MOUNTPT}'..."
+         err_exit "Skipping '${MOUNTPT}'..." NONE
       fi
    done
 
@@ -285,5 +285,6 @@ then
 fi
 
 # Mount build-target /boot filesystem
+err_exit "Mounting ${CHROOTMNT}/boot" NONE
 mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}1" "${CHROOTMNT}/boot" || \
   err_exit "Failed mounting ${CHROOTMNT}/boot"
