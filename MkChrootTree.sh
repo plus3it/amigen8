@@ -8,7 +8,6 @@ PROGNAME=$(basename "$0")
 CHROOTDEV=""
 CHROOTMNT="${CHROOTMNT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
-DEFFSTYPE="${DEFFSTYPE:-xfs}"
 DEFGEOMARR=(
       /:rootVol:4
       swap:swapVol:2
@@ -18,7 +17,9 @@ DEFGEOMARR=(
       /var/log/audit:auditVol:100%FREE
    )
 DEFGEOMSTR="${DEFGEOMSTR:-$( IFS=$',' ; echo "${DEFGEOMARR[*]}" )}"
-GEOMETRYSTRING=""
+FSTYPE="${DEFFSTYPE:-xfs}"
+GEOMETRYSTRING="${DEFGEOMSTR}"
+read -rad " " VALIDFSTYPES <<< "$( awk '!/^nodev/{ print $1}' /proc/filesystems )"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -99,14 +100,59 @@ function ValidateTgtMnt {
    fi
 }
 
+# Mount VG elements
+function DoLvmMounts {
+   local ELEM
+   local MOUNTPT
+   local PARTITIONARRAY
+   local PARTITIONSTR
+   local -a MOUNTINFO
+
+   PARTITIONSTR="${GEOMETRYSTRING}"
+
+   # Convert ${PARTITIONSTR} to iterable partition-info array
+   read -rad ',' PARTITIONARRAY <<< "${PARTITIONSTR}"
+   # Create associative-array with mountpoints as keys
+   for ELEM in ${PARTITIONARRAY[*]}
+   do
+      MOUNTINFO[${ELEM//:*/}]=${ELEM#*:}
+   done
+
+   # Ensure all LVM volumes are active
+   vgchange -a y "${VGNAME}" || err_out 2 "Failed to activate LVM"
+
+   # Mount volumes
+   for MOUNTPT in $( echo "${!MOUNTINFO[*]}" | tr " " "\n" | sort )
+   do
+
+      # Ensure mountpoint exists
+      if [[ ! -d ${ALTROOT}/${MOUNTPT} ]]
+      then
+          install -dDm 000755 "${ALTROOT}/${MOUNTPT}"
+      fi
+
+      # Mount the filesystem
+      if [[ ${MOUNTPT} == /* ]]
+      then
+         echo "Mounting '${ALTROOT}${MOUNTPT}'..."
+         mount -t "${DEVFSTYP}" "/dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}" \
+           "${ALTROOT}${MOUNTPT}" || \
+             err_out 1 "Unable to mount /dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}"
+      else
+         echo "Skipping '${MOUNTPT}'..."
+      fi
+   done
+
+}
+
 
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o d:hm:p: \
-   --long disk:,help,mountpoint:,partition-string: \
+   -o d:f:hm:p: \
+   --long disk:,fstype:,help,mountpoint:,no-lvm,partition-string: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -130,6 +176,23 @@ do
                   ;;
             esac
             ;;
+      -f|--fstype)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  FSTYPE="${2}"
+                  if [[ $( grep -qw "${FSTYPE}" <<< "${VALIDFSTYPES[*]}" ) -ne 0 ]]
+                  then
+                     err_exit "Invalid fstype [${FSTYPE}] requested"
+                  fi
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -h|--help)
             UsageMsg 0
             ;;
@@ -145,6 +208,9 @@ do
                   shift 2;
                   ;;
             esac
+            ;;
+      --no-lvm)
+            NOLVM="true"
             ;;
       -p|--partition-string)
             case "$2" in
@@ -177,13 +243,34 @@ then
 elif [[ ! -b ${CHROOTDEV} ]]
 then
    err_exit "No such block-device [${CHROOTDEV}]. Aborting"
-fi
-
-# Use default geometry-string
-if [[ ${GEOMETRYSTRING:-} == "" ]]
-then
-   GEOMETRYSTRING=${DEFGEOMSTR}
+else
+   if [[ ${CHROOTDEV} =~ /dev/nvme ]]
+   then
+      PARTPRE="p"
+   else
+      PARTPRE=""
+   fi
 fi
 
 # Ensure build-target mount-hierarchy is available
 ValidateTgtMnt
+
+## Mount partition(s) from second slice
+# Locate LVM2 volume-group name
+VGNAME=$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}" | \
+      sed 's/^[ 	]*//'
+   )
+
+# Do partition-mount if 'no-lvm' explicitly requested
+if [[ ${NOLVM} == "true" ]]
+then
+   mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}2" "${CHROOTMNT}"
+# Bail if not able to find a LVM2 vg-name
+elif [[ -z ${VGNAME:-} ]]
+then
+   err_exit "No LVM2 volume group found on ${CHROOTDEV}${PARTPRE}2 and" NONE
+   err_exit "The '--no-lvm' option not set. Aborting"
+# Attempt mount of LVM2 volumes
+else
+   DoLvmMounts
+fi
