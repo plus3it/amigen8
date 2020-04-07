@@ -6,6 +6,7 @@ set -eu -o pipefail
 #######################################################################
 PROGNAME=$(basename "$0")
 CHROOTDEV=""
+CHROOTMNT="${CHROOTMNT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 DEFFSTYPE="${DEFFSTYPE:-xfs}"
 DEFGEOMARR=(
@@ -29,9 +30,11 @@ fi
 # Error handler function
 function err_exit {
    local ERRSTR
+   local ISNUM
    local SCRIPTEXIT
 
    ERRSTR="${1}"
+   ISNUM='^[0-9]+$'
    SCRIPTEXIT="${2:-1}"
 
    if [[ ${DEBUG} == true ]]
@@ -42,8 +45,13 @@ function err_exit {
       logger -i -t "${PROGNAME}" -p kern.crit -- "${ERRSTR}"
    fi
 
-   exit "${SCRIPTEXIT}"
+   # Only exit if requested exit is numerical
+   if [[ ${SCRIPTEXIT} =~ ${ISNUM} ]]
+   then
+      exit "${SCRIPTEXIT}"
+   fi
 }
+
 # Print out a basic usage message
 function UsageMsg {
    local SCRIPTEXIT
@@ -67,6 +75,28 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--partition-string' 'See "-p" short-option'
    )
    exit "${SCRIPTEXIT}"
+}
+
+# Try to ensure good chroot mount-point exists
+function ValidateTgtMnt {
+   # Ensure chroot mount-point exists
+   if [[ -d ${CHROOTMNT} ]]
+   then
+      if [[ $( mountpoint -q ${CHROOTMNT} ) ]]
+      then
+         err_exit "Selected mount-point [${CHROOTMNT}] already in use. Aborting."
+      else
+         err_exit "Requested mount-point available for use. Proceeding..." NONE
+      fi
+   elif [[ -e ${CHROOTMNT} ]] && [[ ! -d ${CHROOTMNT} ]]
+   then
+      err_exit "Selected mount-point [${CHROOTMNT}] is not correct type. Aborting"
+   else
+      err_exit "Requested mount-point [${CHROOTMNT}] not found. Creating... " NONE
+      install -Ddm 000755 "${CHROOTMNT}" || \
+         err_exit "Failed to create mount-point"
+      err_exit "Succeeded creating mount-point [${CHROOTMNT}]" NONE
+   fi
 }
 
 
@@ -142,4 +172,5 @@ then
    GEOMETRYSTRING=${DEFGEOMSTR}
 fi
 
-echo "${GEOMETRYSTRING}"
+# Ensure build-target mount-hierarchy is available
+ValidateTgtMnt
