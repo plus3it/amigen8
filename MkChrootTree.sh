@@ -5,6 +5,7 @@ set -eu -o pipefail
 #
 #######################################################################
 PROGNAME=$(basename "$0")
+CHROOTDEV=""
 DEBUG="${DEBUG:-UNDEF}"
 DEFFSTYPE="${DEFFSTYPE:-xfs}"
 DEFGEOMARR=(
@@ -16,6 +17,7 @@ DEFGEOMARR=(
       /var/log/audit:auditVol:100%FREE
    )
 DEFGEOMSTR="${DEFGEOMSTR:-$( IFS=$',' ; echo "${DEFGEOMARR[*]}" )}"
+GEOMETRYSTRING=""
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -51,7 +53,7 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-d' 'Device contining "/boot" partition'
+      printf '\t%-4s%s\n' '-d' 'Device contining "/boot" partition (e.g., "/dev/xvdf")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
       printf '\t%-6s%s\n' '' 'Default layout:'
@@ -79,4 +81,65 @@ OPTIONBUFR=$( getopt \
 
 eval set -- "${OPTIONBUFR}"
 
-UsageMsg
+###################################
+# Parse contents of ${OPTIONBUFR}
+###################################
+while true
+do
+   case "$1" in
+      -d|--disk)
+            case "$2" in
+               "")
+                  LogBrk 1 "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  CHROOTDEV="${2}"
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -h|--help)
+            UsageMsg 0
+            ;;
+      -p|--partition-string)
+            case "$2" in
+               "")
+                  LogBrk 1"Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  GEOMETRYSTRING=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      --)
+         shift
+         break
+         ;;
+      *)
+         LogBrk 1 "Internal error!"
+         exit 1
+         ;;
+   esac
+done
+
+# *MUST* supply a disk-device
+if [[ -z ${CHROOTDEV:-} ]]
+then
+   err_exit "No block-device specified. Aborting"
+elif [[ ! -b ${CHROOTDEV} ]]
+then
+   err_exit "No such block-device [${CHROOTDEV}]. Aborting"
+fi
+
+# Use default geometry-string
+if [[ ${GEOMETRYSTRING:-} == "" ]]
+then
+   GEOMETRYSTRING=${DEFGEOMSTR}
+fi
+
+echo "${GEOMETRYSTRING}"
