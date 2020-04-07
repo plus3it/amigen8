@@ -19,6 +19,7 @@ DEFGEOMARR=(
 DEFGEOMSTR="${DEFGEOMSTR:-$( IFS=$',' ; echo "${DEFGEOMARR[*]}" )}"
 FSTYPE="${DEFFSTYPE:-xfs}"
 GEOMETRYSTRING="${DEFGEOMSTR}"
+SAVIFS="${IFS}"
 read -ra VALIDFSTYPES <<< "$( awk '!/^nodev/{ print $1}' /proc/filesystems | tr '\n' ' ' )"
 
 
@@ -84,7 +85,7 @@ function ValidateTgtMnt {
    # Ensure chroot mount-point exists
    if [[ -d ${CHROOTMNT} ]]
    then
-      if [[ $( mountpoint -q "${CHROOTMNT}" ) -eq 0 ]]
+      if [[ $( mountpoint -q "${CHROOTMNT}" )$? -eq 0 ]]
       then
          err_exit "Selected mount-point [${CHROOTMNT}] already in use. Aborting."
       else
@@ -107,12 +108,14 @@ function DoLvmMounts {
    local MOUNTPT
    local PARTITIONARRAY
    local PARTITIONSTR
-   local -a MOUNTINFO
+   local -A MOUNTINFO
 
    PARTITIONSTR="${GEOMETRYSTRING}"
 
    # Convert ${PARTITIONSTR} to iterable partition-info array
-   read -rad ',' PARTITIONARRAY <<< "${PARTITIONSTR}"
+   IFS=',' read -ra PARTITIONARRAY <<< "${PARTITIONSTR}"
+   IFS="${SAVIFS}"
+
    # Create associative-array with mountpoints as keys
    for ELEM in ${PARTITIONARRAY[*]}
    do
@@ -136,7 +139,7 @@ function DoLvmMounts {
       if [[ ${MOUNTPT} == /* ]]
       then
          echo "Mounting '${CHROOTMNT}${MOUNTPT}'..."
-         mount -t "${DEVFSTYP}" "/dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}" \
+         mount -t "${FSTYPE}" "/dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}" \
            "${CHROOTMNT}${MOUNTPT}" || \
              err_exit "Unable to mount /dev/${VGNAME}/${MOUNTINFO[${MOUNTPT}]//:*/}"
       else
@@ -258,12 +261,10 @@ ValidateTgtMnt
 
 ## Mount partition(s) from second slice
 # Locate LVM2 volume-group name
-VGNAME=$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}" | \
-      sed 's/^[ 	]*//'
-   )
+read -r VGNAME <<< "$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}2" )"
 
 # Do partition-mount if 'no-lvm' explicitly requested
-if [[ ${NOLVM} == "true" ]]
+if [[ ${NOLVM:-} == "true" ]]
 then
    mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}2" "${CHROOTMNT}"
 # Bail if not able to find a LVM2 vg-name
@@ -284,5 +285,5 @@ then
 fi
 
 # Mount build-target /boot filesystem
-mount mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}1" "${CHROOTMNT}/boot" || \
+mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}1" "${CHROOTMNT}/boot" || \
   err_exit "Failed mounting ${CHROOTMNT}/boot"
