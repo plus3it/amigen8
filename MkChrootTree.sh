@@ -19,7 +19,8 @@ DEFGEOMARR=(
 DEFGEOMSTR="${DEFGEOMSTR:-$( IFS=$',' ; echo "${DEFGEOMARR[*]}" )}"
 FSTYPE="${DEFFSTYPE:-xfs}"
 GEOMETRYSTRING="${DEFGEOMSTR}"
-read -rad " " VALIDFSTYPES <<< "$( awk '!/^nodev/{ print $1}' /proc/filesystems )"
+read -ra VALIDFSTYPES <<< "$( awk '!/^nodev/{ print $1}' /proc/filesystems | tr '\n' ' ' )"
+
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
