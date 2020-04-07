@@ -82,7 +82,7 @@ function ValidateTgtMnt {
    # Ensure chroot mount-point exists
    if [[ -d ${CHROOTMNT} ]]
    then
-      if [[ $( mountpoint -q ${CHROOTMNT} ) ]]
+      if [[ $( mountpoint -q "${CHROOTMNT}" ) -eq 0 ]]
       then
          err_exit "Selected mount-point [${CHROOTMNT}] already in use. Aborting."
       else
@@ -105,8 +105,8 @@ function ValidateTgtMnt {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o d:hp: \
-   --long disk:,help,partition-string: \
+   -o d:hm:p: \
+   --long disk:,help,mountpoint:,partition-string: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -132,6 +132,19 @@ do
             ;;
       -h|--help)
             UsageMsg 0
+            ;;
+      -m|--mountpoint)
+            case "$2" in
+               "")
+                  LogBrk 1"Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  CHROOTMNT=${2}
+                  shift 2;
+                  ;;
+            esac
             ;;
       -p|--partition-string)
             case "$2" in
