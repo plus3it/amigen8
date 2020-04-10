@@ -149,6 +149,57 @@ function DoLvmMounts {
 
 }
 
+# Create block/character-special files
+function PrepSpecialDevs {
+
+   local -a SPECDEVS
+   local DEVICE
+   local DEVMAJ
+   local DEVMIN
+   local DEVPRM
+   local DEVOWN
+
+   SPECDEVS=(
+         /dev/null:1:3:000666
+         /dev/zero:1:5:000666
+         /dev/random:1:8:000666
+         /dev/urandom:1:9:000666
+         /dev/tty:5:0:000666:tty
+         /dev/console:5:1:000600
+         /dev/ptmx:5:2:000666:tty
+      )
+   # Prep for loopback mounts
+   mkdir -p "${CHROOT}"/{proc,sys,dev/{pts,shm}}
+
+   # Create base dev-nodes
+   for DEVSTR in ${SPECDEVS[*]}
+   do
+      DEVICE=$( cut -d: -f 1 <<< "${DEVSTR}" )
+      DEVMAJ=$( cut -d: -f 2 <<< "${DEVSTR}" )
+      DEVMIN=$( cut -d: -f 3 <<< "${DEVSTR}" )
+      DEVPRM=$( cut -d: -f 4 <<< "${DEVSTR}" )
+      DEVOWN=$( cut -d: -f 5 <<< "${DEVSTR}" )
+
+      # Create any missing device-nodes as needed
+      if [[ -e ${CHROOT}${DEVICE} ]]
+      then
+         err_exit "${CHROOT}${DEVICE} exists" NONE
+      else
+         err_exit "Making ${CHROOT}${DEVICE}... " NONE
+         mknod -m "${DEVPRM}" "${CHROOT}${DEVICE}" c "${DEVMAJ}" "${DEVMIN}" || \
+           err_exit "Failed making ${CHROOT}${DEVICE}"
+
+         # Set an alternate group-owner where appropriate
+         if [[ ${DEVOWN:-} != '' ]]
+         then
+            err_exit "Setting ownership on ${CHROOT}${DEVICE}..." NONE
+            chown root:"${DEVOWN}" "${CHROOT}${DEVICE}" || \
+              err_exit "Failed setting ownership on ${CHROOT}${DEVICE}..."
+         fi
+      fi
+   done
+}
+
 
 
 ######################
@@ -276,6 +327,9 @@ then
 else
    DoLvmMounts
 fi
+
+# Make block/character-special files
+PrepSpecialDevs
 
 # Ensure build-target /boot mountpoint exists
 if [[ ! -d ${CHROOTMNT}/boot ]]
