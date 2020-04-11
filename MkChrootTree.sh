@@ -152,14 +152,15 @@ function DoLvmMounts {
 # Create block/character-special files
 function PrepSpecialDevs {
 
-   local -a SPECDEVS
-   local DEVICE
-   local DEVMAJ
-   local DEVMIN
-   local DEVPRM
-   local DEVOWN
+   local    BINDDEV
+   local -a CHARDEVS
+   local    DEVICE
+   local    DEVMAJ
+   local    DEVMIN
+   local    DEVPRM
+   local    DEVOWN
 
-   SPECDEVS=(
+   CHARDEVS=(
          /dev/null:1:3:000666
          /dev/zero:1:5:000666
          /dev/random:1:8:000666
@@ -171,8 +172,8 @@ function PrepSpecialDevs {
    # Prep for loopback mounts
    mkdir -p "${CHROOT}"/{proc,sys,dev/{pts,shm}}
 
-   # Create base dev-nodes
-   for DEVSTR in ${SPECDEVS[*]}
+   # Create character-special files
+   for DEVSTR in ${CHARDEVS[*]}
    do
       DEVICE=$( cut -d: -f 1 <<< "${DEVSTR}" )
       DEVMAJ=$( cut -d: -f 2 <<< "${DEVSTR}" )
@@ -198,6 +199,34 @@ function PrepSpecialDevs {
          fi
       fi
    done
+
+   # Bind-mount pseudo-filesystems
+   grep -v "${CHROOT}" /proc/mounts | \
+      sed '{
+         /^none/d
+         /\/tmp/d
+         /rootfs/d
+         /dev\/sd/d
+         /dev\/xvd/d
+         /dev\/nvme/d
+         /\/user\//d
+         /\/mapper\//d
+         /^cgroup/d
+      }' | awk '{ print $2 }' | sort -u | while read -r BINDDEV
+   do
+      # Create mountpoints in chroot-env
+      if [[ ! -d ${CHROOT}${BINDDEV} ]]
+      then
+         err_exit "Creating mountpoint: ${CHROOT}${BINDDEV}" NONE
+         install -Ddm 000755 "${CHROOT}${BINDDEV}" || \
+           err_exit "Failed creating mountpoint: ${CHROOT}${BINDDEV}"
+      fi
+
+      err_exit "Mounting ${CHROOT}${BINDDEV}..." NONE
+      mount -o bind "${BINDDEV}" "${CHROOT}${BINDDEV}" || \
+        err_exit "Failed mounting ${CHROOT}${BINDDEV}"
+   done
+
 }
 
 
