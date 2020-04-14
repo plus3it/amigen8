@@ -6,7 +6,7 @@ set -eu -o pipefail
 #######################################################################
 PROGNAME=$(basename "$0")
 CHROOTDEV=""
-CHROOTMNT="${CHROOTMNT:-/mnt/ec2-root}"
+CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 DEFGEOMARR=(
       /:rootVol:4
@@ -64,8 +64,9 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-d' 'Device contining "/boot" partition (e.g., "/dev/xvdf")'
+      printf '\t%-4s%s\n' '-d' 'Device to contain the OS partition(s) (e.g., "/dev/xvdf")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
+      printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
       printf '\t%-6s%s\n' '' 'Default layout:'
       for PART in ${DEFGEOMARR[*]}
@@ -75,6 +76,7 @@ function UsageMsg {
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--disk' 'See "-d" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
+      printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--partition-string' 'See "-p" short-option'
    )
    exit "${SCRIPTEXIT}"
@@ -170,7 +172,7 @@ function PrepSpecialDevs {
          /dev/ptmx:5:2:000666:tty
       )
    # Prep for loopback mounts
-   mkdir -p "${CHROOT}"/{proc,sys,dev/{pts,shm}}
+   mkdir -p "${CHROOTMNT}"/{proc,sys,dev/{pts,shm}}
 
    # Create character-special files
    for DEVSTR in ${CHARDEVS[*]}
@@ -182,26 +184,26 @@ function PrepSpecialDevs {
       DEVOWN=$( cut -d: -f 5 <<< "${DEVSTR}" )
 
       # Create any missing device-nodes as needed
-      if [[ -e ${CHROOT}${DEVICE} ]]
+      if [[ -e ${CHROOTMNT}${DEVICE} ]]
       then
-         err_exit "${CHROOT}${DEVICE} exists" NONE
+         err_exit "${CHROOTMNT}${DEVICE} exists" NONE
       else
-         err_exit "Making ${CHROOT}${DEVICE}... " NONE
-         mknod -m "${DEVPRM}" "${CHROOT}${DEVICE}" c "${DEVMAJ}" "${DEVMIN}" || \
-           err_exit "Failed making ${CHROOT}${DEVICE}"
+         err_exit "Making ${CHROOTMNT}${DEVICE}... " NONE
+         mknod -m "${DEVPRM}" "${CHROOTMNT}${DEVICE}" c "${DEVMAJ}" "${DEVMIN}" || \
+           err_exit "Failed making ${CHROOTMNT}${DEVICE}"
 
          # Set an alternate group-owner where appropriate
          if [[ ${DEVOWN:-} != '' ]]
          then
-            err_exit "Setting ownership on ${CHROOT}${DEVICE}..." NONE
-            chown root:"${DEVOWN}" "${CHROOT}${DEVICE}" || \
-              err_exit "Failed setting ownership on ${CHROOT}${DEVICE}..."
+            err_exit "Setting ownership on ${CHROOTMNT}${DEVICE}..." NONE
+            chown root:"${DEVOWN}" "${CHROOTMNT}${DEVICE}" || \
+              err_exit "Failed setting ownership on ${CHROOTMNT}${DEVICE}..."
          fi
       fi
    done
 
    # Bind-mount pseudo-filesystems
-   grep -v "${CHROOT}" /proc/mounts | \
+   grep -v "${CHROOTMNT}" /proc/mounts | \
       sed '{
          /^none/d
          /\/tmp/d
@@ -215,16 +217,16 @@ function PrepSpecialDevs {
       }' | awk '{ print $2 }' | sort -u | while read -r BINDDEV
    do
       # Create mountpoints in chroot-env
-      if [[ ! -d ${CHROOT}${BINDDEV} ]]
+      if [[ ! -d ${CHROOTMNT}${BINDDEV} ]]
       then
-         err_exit "Creating mountpoint: ${CHROOT}${BINDDEV}" NONE
-         install -Ddm 000755 "${CHROOT}${BINDDEV}" || \
-           err_exit "Failed creating mountpoint: ${CHROOT}${BINDDEV}"
+         err_exit "Creating mountpoint: ${CHROOTMNT}${BINDDEV}" NONE
+         install -Ddm 000755 "${CHROOTMNT}${BINDDEV}" || \
+           err_exit "Failed creating mountpoint: ${CHROOTMNT}${BINDDEV}"
       fi
 
-      err_exit "Mounting ${CHROOT}${BINDDEV}..." NONE
-      mount -o bind "${BINDDEV}" "${CHROOT}${BINDDEV}" || \
-        err_exit "Failed mounting ${CHROOT}${BINDDEV}"
+      err_exit "Mounting ${CHROOTMNT}${BINDDEV}..." NONE
+      mount -o bind "${BINDDEV}" "${CHROOTMNT}${BINDDEV}" || \
+        err_exit "Failed mounting ${CHROOTMNT}${BINDDEV}"
    done
 
 }
@@ -250,7 +252,7 @@ do
       -d|--disk)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -263,7 +265,7 @@ do
       -f|--fstype)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -283,7 +285,7 @@ do
       -m|--mountpoint)
             case "$2" in
                "")
-                  LogBrk 1"Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -295,11 +297,12 @@ do
             ;;
       --no-lvm)
             NOLVM="true"
+            shift 1;
             ;;
       -p|--partition-string)
             case "$2" in
                "")
-                  LogBrk 1"Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -314,7 +317,7 @@ do
          break
          ;;
       *)
-         LogBrk 1 "Internal error!"
+         err_exit "Internal error!"
          exit 1
          ;;
    esac
@@ -360,14 +363,3 @@ fi
 # Make block/character-special files
 PrepSpecialDevs
 
-# Ensure build-target /boot mountpoint exists
-if [[ ! -d ${CHROOTMNT}/boot ]]
-then
-   install -Ddm 000755 "${CHROOTMNT}/boot" || \
-     err_exit "Failed creating ${CHROOTMNT}/boot"
-fi
-
-# Mount build-target /boot filesystem
-err_exit "Mounting ${CHROOTMNT}/boot" NONE
-mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}1" "${CHROOTMNT}/boot" || \
-  err_exit "Failed mounting ${CHROOTMNT}/boot"
