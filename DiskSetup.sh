@@ -164,8 +164,10 @@ function CarveBare {
    dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1
 
    # Lay down the base partitions
-   parted -s "${CHROOTDEV}" -- mklabel msdos mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
-      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100%
+   parted -s "${CHROOTDEV}" -- mklabel gpt \
+      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
+      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
+      set 1 bios_grub on 
 
    # Create FS on partitions
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" "${CHROOTDEV}${PARTPRE}2"
