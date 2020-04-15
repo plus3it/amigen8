@@ -27,7 +27,6 @@ MINXTRAPKGS=(
 EXCLUDEPKGS=(
       aic94xx-firmware
       alsa-firmware
-      alsa-lib
       alsa-tools-firmware
       biosdevname
       iprutils
@@ -51,7 +50,6 @@ EXCLUDEPKGS=(
       libertas-sd8686-firmware
       libertas-sd8787-firmware
       libertas-usb8388-firmware
-      plymouth
    )
 RPMFILE=${RPMFILE:-UNDEF}
 RPMGRP=${RPMGRP:-core}
@@ -239,15 +237,26 @@ function MainInstall {
    done
 
    # Install packages
-   $YUMCMD @"${RPMGRP}" -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+   $YUMCMD "@${RPMGRP}" -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
+   err_exit "Verifying insstalled RPMs" NONE
    for RPM in ${INLCLUDEPKGS[*]}
    do
       err_exit "Checking presence of ${RPM}..." NONE
-      rpm -q "${RPM}" || \
-      err_exit "Failed finding ${RPM}"
+      chroot "${CHROOTMNT}" bash -c "rpm -q ${RPM}" || \
+        err_exit "Failed finding ${RPM}"
    done
+
+   #######################
+   ## Clean up yum history
+   err_exit "Executing yum clean..." NONE
+   chroot "${CHROOTMNT}" yum clean --enablerepo=* -y packages || \
+     err_exit "Failed executing yum clean"
+
+   err_exit "Nuking DNF history DBs..." NONE
+   chroot "${CHROOTMNT}" rm -rf /var/lib/dnf/history.* || \
+     err_exit "Failed to nuke DNF history DBs"
 
 }
 
@@ -261,8 +270,8 @@ function SetFIPSmode {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o Fhm:r: \
-   --long no-fips,help,mountpoint:,repolist: \
+   -o Fg:hm:r: \
+   --long help,mountpoint:,no-fips,repolist:,rpm-group \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
