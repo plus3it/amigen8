@@ -52,6 +52,8 @@ EXCLUDEPKGS=(
       libertas-usb8388-firmware
       plymouth
    )
+RPMFILE=${RPMFILE:-UNDEF}
+RPMGRP=${RPMGRP:-core}
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -93,11 +95,15 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
+      printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
-      printf '\t%-4s%s\n' '-r' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
+      printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install'
+      printf '\t%-4s%s\n' '-r' 'List of reposiories to install RPMs from'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
+      printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
+      printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
       printf '\t%-20s%s\n' '--repolist' 'See "-r" short-option'
    )
    exit "${SCRIPTEXIT}"
@@ -206,7 +212,33 @@ function PrepChroot {
 
 # Install selected package-set into chroot-dev
 function MainInstall {
-   true
+   local YUMCMD
+
+   YUMCMD="yum --nogpgcheck --installroot=${CHROOTMNT} "
+   YUMCMD+="--disablerepo=* --enablerepo=${OSREPOS} install -y "
+
+   echo "${RPMFILE}" > /dev/null 2>&1
+
+   echo "${YUMCMD} -x $( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+
+   # Expand the "core" RPM group and store as array
+   mapfile -t INLCLUDEPKGS < <(
+      yum groupinfo "${RPMGRP}" 2>&1 | \
+      sed -n '/Mandatory/,/Optional Packages:/p' | \
+      sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
+   )
+
+   # Add extra packages to include-list (array)
+   INLCLUDEPKGS+=( "${INLCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
+
+   # Remove excluded packages from include-list
+   for EXCLUDE in ${EXCLUDEPKGS[*]}
+   do
+       INLCLUDEPKGS=( "${INLCLUDEPKGS[@]//*${EXCLUDE}*}" )
+   done
+
+   $YUMCMD @"${RPMGRP}" -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+
 }
 
 # Set FIPS mode
@@ -231,12 +263,38 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      -g|--rpm-group)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  RPMGRP=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -F|--no-fips)
            FIPSDISABLE="true"
            shift 1;
            ;;
       -h|--help)
             UsageMsg 0
+            ;;
+      -M|--pkg-manifest)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  RPMFILE=${2}
+                  shift 2;
+                  ;;
+            esac
             ;;
       -m|--mountpoint)
             case "$2" in
@@ -283,3 +341,6 @@ fi
 
 # Install minimum RPM-set into chroot-dev
 PrepChroot
+
+# Install the desired RPM-group or manifest-file
+MainInstall
