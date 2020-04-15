@@ -14,10 +14,11 @@ MINXTRAPKGS=(
       cloud-utils-growpart
       dhcp-client
       dracut-config-generic
-      dracut-norescue
       firewalld
       gdisk
-      grub2
+      grub2-tools
+      grub2-tools-minimal
+      grubby
       kernel
       kexec-tools
       lvm2
@@ -237,7 +238,16 @@ function MainInstall {
        INLCLUDEPKGS=( "${INLCLUDEPKGS[@]//*${EXCLUDE}*}" )
    done
 
+   # Install packages
    $YUMCMD @"${RPMGRP}" -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+
+   # Verify installation
+   for RPM in ${INLCLUDEPKGS[*]}
+   do
+      err_exit "Checking presence of ${RPM}..." NONE
+      rpm -q "${RPM}" || \
+      err_exit "Failed finding ${RPM}"
+   done
 
 }
 
