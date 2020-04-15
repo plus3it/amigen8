@@ -19,9 +19,11 @@ fi
 # Error handler function
 function err_exit {
    local ERRSTR
+   local ISNUM
    local SCRIPTEXIT
 
    ERRSTR="${1}"
+   ISNUM='^[0-9]+$'
    SCRIPTEXIT="${2:-1}"
 
    if [[ ${DEBUG} == true ]]
@@ -32,7 +34,11 @@ function err_exit {
       logger -i -t "${PROGNAME}" -p kern.crit -- "${ERRSTR}"
    fi
 
-   exit "${SCRIPTEXIT}"
+   # Only exit if requested exit is numerical
+   if [[ ${SCRIPTEXIT} =~ ${ISNUM} ]]
+   then
+      exit "${SCRIPTEXIT}"
+   fi
 }
 
 
@@ -96,27 +102,36 @@ function CarveLVM {
    IFS=',' read -r -a PARTITIONARRAY <<< "${PARTITIONSTR}"
 
    # Clear the MBR and partition table
-   dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1
+   err_exit "Clearing existing partition-tables..." NONE
+   dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1 || \
+     err_exit "Failed clearing existing partition-tables"
 
    # Lay down the base partitions
+   err_exit "Laying down new partition-table..." NONE
    parted -s "${CHROOTDEV}" -- mktable gpt \
-     mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
-     mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
-     set 1 bios_grub on \
-     set 2 lvm
+      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
+      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
+      set 1 bios_grub on \
+      set 2 lvm || \
+     err_exit "Failed laying down new partition-table"
 
    ## Create LVM objects
 
    # Let's only attempt this if we're a secondary EBS
    if [[ ${CHROOTDEV} == /dev/xvda ]] || [[ ${CHROOTDEV} == /dev/nvme0n1 ]]
    then
-      echo "Skipping explicit pvcreate opertion... "
+      err_exit "Skipping explicit pvcreate opertion... " NONE
    else
-      pvcreate "${CHROOTDEV}${PARTPRE}2" || LogBrk 5 "PV creation failed. Aborting!"
+      err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE}2..." NONE
+      pvcreate "${CHROOTDEV}${PARTPRE}2" || \
+        err_exit "PV creation failed. Aborting!"
    fi
 
    # Create root VolumeGroup
-   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE}2" || LogBrk 5 "VG creation failed. Aborting!"
+   err_exit "Creating LVM2 volume-group ${VGNAME}..." NONE
+   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE}2" || \
+     err_exit "VG creation failed. Aborting!"
+
    # Create LVM2 volume-objects by iterating ${PARTITIONARRAY}
    ITER=0
    while [[ ${ITER} -lt ${#PARTITIONARRAY[*]} ]]
@@ -147,10 +162,13 @@ function CarveLVM {
       # Create FSes on LVs
       if [[ ${MOUNTPT} == swap ]]
       then
-         mkswap "/dev/${VGNAME}/${VOLNAME}"
+         err_exit "Creating swap filesystem..." NONE
+         mkswap "/dev/${VGNAME}/${VOLNAME}" || \
+           err_exit "Failed creating swap filesystem..."
       else
-         mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" "/dev/${VGNAME}/${VOLNAME}" \
-            || err_exit "Failure creating filesystem for '${MOUNTPT}'"
+         err_exit "Creating filesystem for ${MOUNTPT}..." NONE
+         mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" "/dev/${VGNAME}/${VOLNAME}" || \
+           err_exit "Failure creating filesystem for '${MOUNTPT}'"
       fi
 
       (( ITER+=1 ))
@@ -161,16 +179,23 @@ function CarveLVM {
 # Partition with no LVM
 function CarveBare {
    # Clear the MBR and partition table
-   dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1
+   err_exit "Clearing existing partition-tables..." NONE
+   dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1 || \
+     err_exit "Failed clearing existing partition-tables"
 
    # Lay down the base partitions
+   err_exit "Laying down new partition-table..." NONE
    parted -s "${CHROOTDEV}" -- mklabel gpt \
       mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
       mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
-      set 1 bios_grub on 
+      set 1 bios_grub on || \
+     err_exit "Failed laying down new partition-table"
 
    # Create FS on partitions
-   mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" "${CHROOTDEV}${PARTPRE}2"
+   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE}2..." NONE
+   mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" \
+      "${CHROOTDEV}${PARTPRE}2" || \
+     err_exit "Failed creating filesystem"
 }
 
 
@@ -193,7 +218,7 @@ do
       -B|--boot-size)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -206,7 +231,7 @@ do
       -d|--disk)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -219,7 +244,7 @@ do
       -f|--fstype)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -234,7 +259,7 @@ do
                   shift 2;
                   ;;
                *)
-                  LogBrk 1 "Error: unrecognized/unsupported FSTYPE. Aborting..."
+                  err_exit "Error: unrecognized/unsupported FSTYPE. Aborting..."
                   shift 2;
                   exit 1
                   ;;
@@ -246,7 +271,7 @@ do
       -p|--partition-string)
             case "$2" in
                "")
-                  LogBrk 1"Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -259,7 +284,7 @@ do
       -r|--rootlabel)
             case "$2" in
                "")
-                  LogBrk 1"Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -271,7 +296,7 @@ do
             ;;      -v|--vgname)
             case "$2" in
                "")
-                  LogBrk 1 "Error: option required but not specified"
+                  err_exit "Error: option required but not specified"
                   shift 2;
                   exit 1
                   ;;
@@ -286,7 +311,7 @@ do
          break
          ;;
       *)
-         LogBrk 1 "Internal error!"
+         err_exit "Internal error!"
          exit 1
          ;;
    esac
