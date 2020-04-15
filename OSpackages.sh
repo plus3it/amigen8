@@ -215,10 +215,10 @@ function MainInstall {
 
    YUMCMD="yum --nogpgcheck --installroot=${CHROOTMNT} "
    YUMCMD+="--disablerepo=* --enablerepo=${OSREPOS} install -y "
+   YUMCMD+="@${RPMGRP}"
 
+   # Stub...
    echo "${RPMFILE}" > /dev/null 2>&1
-
-   echo "${YUMCMD} -x $( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Expand the "core" RPM group and store as array
    mapfile -t INLCLUDEPKGS < <(
@@ -237,7 +237,7 @@ function MainInstall {
    done
 
    # Install packages
-   $YUMCMD "@${RPMGRP}" -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+   ${YUMCMD} -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
    err_exit "Verifying insstalled RPMs" NONE
