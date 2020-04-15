@@ -7,6 +7,50 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
+MINXTRAPKGS=(
+      chrony
+      cloud-init
+      cloud-utils-growpart
+      dhcp-client
+      dracut-config-generic
+      dracut-norescue
+      firewalld
+      gdisk
+      grub2
+      kernel
+      kexec-tools
+      lvm2
+      rng-tools
+   )
+EXCLUDEPKGS=(
+      aic94xx-firmware
+      alsa-firmware
+      alsa-lib
+      alsa-tools-firmware
+      biosdevname
+      iprutils
+      ivtv-firmware
+      iwl100-firmware
+      iwl1000-firmware
+      iwl105-firmware
+      iwl135-firmware
+      iwl2000-firmware
+      iwl2030-firmware
+      iwl3160-firmware
+      iwl3945-firmware
+      iwl4965-firmware
+      iwl5000-firmware
+      iwl5150-firmware
+      iwl6000-firmware
+      iwl6000g2a-firmware
+      iwl6000g2b-firmware
+      iwl6050-firmware
+      iwl7260-firmware
+      libertas-sd8686-firmware
+      libertas-sd8787-firmware
+      libertas-usb8388-firmware
+      plymouth
+   )
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -94,6 +138,7 @@ function GetDefaultRepos {
    ( IFS=',' ; echo "${BASEREPOS[*]}" )
 }
 
+# Install base/setup packages in chroot-dev
 function PrepChroot {
    local -a BASEPKGS
 
@@ -156,6 +201,11 @@ function PrepChroot {
       --installroot="${CHROOTMNT}" -y install yum-utils || \
      err_exit "Failed installing yum-utils"
 
+}
+
+# Install selected package-set into chroot-dev
+function MainInstall {
+   true
 }
 
 
