@@ -215,7 +215,6 @@ function MainInstall {
 
    YUMCMD="yum --nogpgcheck --installroot=${CHROOTMNT} "
    YUMCMD+="--disablerepo=* --enablerepo=${OSREPOS} install -y "
-   YUMCMD+="@${RPMGRP}"
 
    # Stub...
    echo "${RPMFILE}" > /dev/null 2>&1
@@ -237,8 +236,9 @@ function MainInstall {
    done
 
    # Install packages
-   ${YUMCMD} "$( IFS=' ' ; echo "${MINXTRAPKGS[*]}" )" \
-      -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+   YUMCMD+="$( IFS=' ' ; echo "${MINXTRAPKGS[*]}" ) " \
+   YUMCMD+="@${RPMGRP}"
+   ${YUMCMD} -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
    err_exit "Verifying insstalled RPMs" NONE
