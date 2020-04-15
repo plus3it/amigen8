@@ -237,7 +237,8 @@ function MainInstall {
    done
 
    # Install packages
-   ${YUMCMD} -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
+   ${YUMCMD} "$( IFS=' ' ; echo "${MINXTRAPKGS[*]}" )" \
+      -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
    err_exit "Verifying insstalled RPMs" NONE
