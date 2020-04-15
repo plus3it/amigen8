@@ -7,6 +7,7 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
+FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
 MINXTRAPKGS=(
       chrony
       cloud-init
@@ -208,13 +209,18 @@ function MainInstall {
    true
 }
 
+# Set FIPS mode
+function SetFIPSmode {
+   true
+}
+
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o hm:r: \
-   --long help,mountpoint:,repolist: \
+   -o Fhm:r: \
+   --long no-fips,help,mountpoint:,repolist: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -225,6 +231,10 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      -F|--no-fips)
+           FIPSDISABLE="true"
+           shift 1;
+           ;;
       -h|--help)
             UsageMsg 0
             ;;
