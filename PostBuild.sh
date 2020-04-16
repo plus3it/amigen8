@@ -223,6 +223,74 @@ function FirewalldSetup {
    err_exit "Failed etting up baseline firewall rules"
 }
 
+# Set up grub on chroot-dev
+function GrubSetup {
+   local CHROOTKRN
+   local GRUBCMDLINE
+   local ROOTTOK
+   local VGCHECK
+
+   # Check what kernel is in the chroot-dev
+   CHROOTKRN=$(
+         chroot "$CHROOT" rpm --qf '%{version}-%{release}.%{arch}\n' -q kernel
+      )
+
+   # See if chroot-dev is LVM2'ed
+   VGCHECK="$( grep \ "${CHROOTMNT}"\  /proc/mounts | \
+         awk '/^\/dev\/mapper/{ print $1 }'
+      )"
+
+   # Determine our "root=" token
+   if [[ ${VGCHECK:-} == '' ]]
+   then
+      err_exit "Bare partitioning not yet supported"
+   else
+      ROOTTOK="root=${VGCHECK}"
+   fi
+
+   # Assemble string for GRUB_CMDLINE_LINUX value
+   GRUBCMDLINE="${ROOTTOK} "
+   GRUBCMDLINE+="crashkernel=auto "
+   GRUBCMDLINE+="vconsole.keymap=us "
+   GRUBCMDLINE+="vconsole.font=latarcyrheb-sun16 "
+   GRUBCMDLINE+="console=tty0 "
+   GRUBCMDLINE+="console=ttyS0,115200n8 "
+   GRUBCMDLINE+="net.ifnames=0 "
+   GRUBCMDLINE+="fips=0"
+
+   # Write default/grub contents
+   err_exit "Writing default/grub file..." NONE
+   (
+      printf 'GRUB_TIMEOUT=0'
+      printf 'GRUB_DISTRIBUTOR="CentOS Linux"'
+      printf 'GRUB_DEFAULT=saved'
+      printf 'GRUB_DISABLE_SUBMENU=true'
+      printf 'GRUB_TERMINAL="serial console"'
+      printf 'GRUB_SERIAL_COMMAND="serial --speed=115200"'
+      printf 'GRUB_CMDLINE_LINUX="%s"' "${GRUBCMDLINE}"
+      printf 'GRUB_DISABLE_RECOVERY=true'
+      printf 'GRUB_DISABLE_OS_PROBER=true'
+      printf 'GRUB_ENABLE_BLSCFG=true'
+   ) > "${CHROOTMNT}/etc/default/grub" || \
+     err_exit "Failed writing default/grub file"
+
+   # Install GRUB2 bootloader
+   chroot "${CHROOT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+
+   # Install GRUB config-file
+   err_exit "Installing GRUB config-file..." NONE
+   chroot "${CHROOT}" /bin/bash -c "/sbin/grub2-mkconfig \
+      > /boot/grub2/grub.cfg" || \
+     err_exit "Failed to install GRUB config-file"
+
+   # Make intramfs in chroot-dev
+   err_exit "Installing initramfs..." NONE
+   chroot "${CHROOT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
+      "${CHROOTKRN}" || \
+     err_exit "Failed installing initramfs"
+
+}
+
 # Configure SELinux
 function SELsetup {
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -378,6 +446,9 @@ TimeSetup
 
 # Configure cloud-init
 ConfigureCloudInit
+
+# Do GRUB2 setup tasks
+GrubSetup
 
 # Clean up yum/dnf history
 CleanHistory
