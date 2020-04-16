@@ -332,3 +332,34 @@ do
          ;;
    esac
 done
+
+###############
+# Call to arms!
+
+# Create /etc/fstab in chroot-dev
+CreateFstab
+
+# Set /tmp as a tmpfs
+SetupTmpfs
+
+# Configure logging
+ConfigureLogging
+
+# Configure networking
+ConfigureNetworking
+
+# Set up firewalld
+FirewalldSetup
+
+# Configure time services
+TimeSetup
+
+# Configure cloud-init
+ConfigureCloudInit
+
+# Clean up yum/dnf history
+CleanHistory
+
+# Apply SELinux settings
+SELsetup
+
