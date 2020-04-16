@@ -151,6 +151,38 @@ function ConfigureLogging {
 
 }
 
+# Configure Networking
+function ConfigureNetworking {
+
+   # Set up ifcfg-eth0 file
+   err_exit "Setting up ifcfg-eth0 file..." NONE
+   (
+      printf 'DEVICE="eth0"\n'
+      printf 'BOOTPROTO="dhcp"\n'
+      printf 'ONBOOT="yes"\n'
+      printf 'TYPE="Ethernet"\n'
+      printf 'USERCTL="yes"\n'
+      printf 'PEERDNS="yes"\n'
+      printf 'IPV6INIT="no"\n'
+      printf 'PERSISTENT_DHCLIENT="1"\n'
+   ) > "${CHROOTMNT}/etc/sysconfig/network-scripts/ifcfg-eth0" || \
+     err_exit "Failed setting up file"
+
+   # Set up sysconfig/network file
+   err_exit "Setting up network file..." NONE
+   (
+      printf 'NETWORKING="yes"\n'
+      printf 'NETWORKING_IPV6="no"\n'
+      printf 'NOZEROCONF="yes"\n'
+      printf 'HOSTNAME="localhost.localdomain"\n'
+   ) > "${CHROOTMNT}/etc/sysconfig/network" || \
+     err_exit "Failed setting up file"
+
+   # Ensure NetworkManager starts
+   chroot "${CHROOTMNT}" systemctl enable NetworkManager
+
+}
+
 # Firewalld config
 function FirewalldSetup {
    err_exit "Setting up baseline firewall rules..." NONE
