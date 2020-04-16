@@ -80,10 +80,11 @@ function CleanHistory {
 function CreateFstab {
    err_exit "Setting up /etc/fstab in chroot-dev..." NONE
    grep "${CHROOTMNT}" /proc/mounts | \
-      grep -w "${FSTYPE}" | \
-      sed "s/${FSTYPE}.*/${FSTYPE}\tdefaults,rw\t0 0/" \
-         >> "${CHROOTMNT}/etc/fstab" || \
-        err_exit "Failed setting up /etc/fstab"
+   grep -w "${FSTYPE}" | \
+   sed -e "s/${FSTYPE}.*/${FSTYPE}\tdefaults,rw\t0 0/" \
+       -e "s#${CHROOTMNT}\s#/\t#" \
+       -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
+     err_exit "Failed setting up /etc/fstab"
 
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -256,6 +257,22 @@ function GrubSetup {
             sed 's/[ 	][ 	]*//g'
          )"
 
+      # Get base device-name
+      if [[ ${CHROOTDEV} =~ nvme ]]
+      then
+         CHROOTDEV="${CHROOTDEV%p*}"
+      else
+         CHROOTDEV="${CHROOTDEV%[0-9]}"
+      fi
+
+      # Make sure device is valid
+      if [[ -b ${CHROOTDEV} ]]
+      then
+         err_exit "Found ${CHROOTDEV}" NONE
+      else
+         err_exit "No such device ${CHROOTDEV}"
+      fi
+
       # Exit if computation failed
       if [[ ${CHROOTDEV:-} == '' ]]
       then
@@ -277,16 +294,16 @@ function GrubSetup {
    # Write default/grub contents
    err_exit "Writing default/grub file..." NONE
    (
-      printf 'GRUB_TIMEOUT=0'
-      printf 'GRUB_DISTRIBUTOR="CentOS Linux"'
-      printf 'GRUB_DEFAULT=saved'
-      printf 'GRUB_DISABLE_SUBMENU=true'
-      printf 'GRUB_TERMINAL="serial console"'
-      printf 'GRUB_SERIAL_COMMAND="serial --speed=115200"'
-      printf 'GRUB_CMDLINE_LINUX="%s"' "${GRUBCMDLINE}"
-      printf 'GRUB_DISABLE_RECOVERY=true'
-      printf 'GRUB_DISABLE_OS_PROBER=true'
-      printf 'GRUB_ENABLE_BLSCFG=true'
+      printf 'GRUB_TIMEOUT=0\n'
+      printf 'GRUB_DISTRIBUTOR="CentOS Linux"\n'
+      printf 'GRUB_DEFAULT=saved\n'
+      printf 'GRUB_DISABLE_SUBMENU=true\n'
+      printf 'GRUB_TERMINAL="serial console"\n'
+      printf 'GRUB_SERIAL_COMMAND="serial --speed=115200"\n'
+      printf 'GRUB_CMDLINE_LINUX="%s"\n' "${GRUBCMDLINE}"
+      printf 'GRUB_DISABLE_RECOVERY=true\n'
+      printf 'GRUB_DISABLE_OS_PROBER=true\n'
+      printf 'GRUB_ENABLE_BLSCFG=true\n'
    ) > "${CHROOTMNT}/etc/default/grub" || \
      err_exit "Failed writing default/grub file"
 
