@@ -225,6 +225,7 @@ function FirewalldSetup {
 
 # Set up grub on chroot-dev
 function GrubSetup {
+   local CHROOTDEV
    local CHROOTKRN
    local GRUBCMDLINE
    local ROOTTOK
@@ -232,7 +233,7 @@ function GrubSetup {
 
    # Check what kernel is in the chroot-dev
    CHROOTKRN=$(
-         chroot "$CHROOT" rpm --qf '%{version}-%{release}.%{arch}\n' -q kernel
+         chroot "${CHROOTMNT}" rpm --qf '%{version}-%{release}.%{arch}\n' -q kernel
       )
 
    # See if chroot-dev is LVM2'ed
@@ -246,6 +247,21 @@ function GrubSetup {
       err_exit "Bare partitioning not yet supported"
    else
       ROOTTOK="root=${VGCHECK}"
+
+      # Compute PV from VG info
+      CHROOTDEV="$(
+            vgs --no-headings -o pv_name "$( 
+               sed "s#/dev/mapper/##" <<< "${VGCHECK%-*}"
+            )" | \
+            sed 's/[ 	][ 	]*//g'
+         )"
+
+      # Exit if computation failed
+      if [[ ${CHROOTDEV:-} == '' ]]
+      then
+         err_exit "Failed to find PV from VG"
+      fi
+
    fi
 
    # Assemble string for GRUB_CMDLINE_LINUX value
@@ -275,17 +291,17 @@ function GrubSetup {
      err_exit "Failed writing default/grub file"
 
    # Install GRUB2 bootloader
-   chroot "${CHROOT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+   chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
 
    # Install GRUB config-file
    err_exit "Installing GRUB config-file..." NONE
-   chroot "${CHROOT}" /bin/bash -c "/sbin/grub2-mkconfig \
+   chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-mkconfig \
       > /boot/grub2/grub.cfg" || \
      err_exit "Failed to install GRUB config-file"
 
    # Make intramfs in chroot-dev
    err_exit "Installing initramfs..." NONE
-   chroot "${CHROOT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
+   chroot "${CHROOTMNT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
       "${CHROOTKRN}" || \
      err_exit "Failed installing initramfs"
 
