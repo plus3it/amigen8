@@ -16,6 +16,7 @@ MINXTRAPKGS=(
       dracut-config-generic
       firewalld
       gdisk
+      grub2-pc-modules
       grub2-tools
       grub2-tools-minimal
       grubby
