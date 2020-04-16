@@ -42,6 +42,28 @@ function err_exit {
    fi
 }
 
+# Print out a basic usage message
+function UsageMsg {
+   local SCRIPTEXIT
+   SCRIPTEXIT="${1:-1}"
+
+   (
+      echo "Usage: ${0} [GNU long option] [option] ..."
+      echo "  Options:"
+      printf '\t%-4s%s\n' '-f' 'Filesystem-type of chroo-devs (e.g., "xfs")'
+      printf '\t%-4s%s\n' '-h' 'Print this message'
+      printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
+      printf '\t%-4s%s\n' '-z' 'Initial timezone of build-target (default: "UTC")'
+      echo "  GNU long options:"
+      printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
+      printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
+      printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
+      printf '\t%-20s%s\n' '--no-tmpfs' 'Disable /tmp as tmpfs behavior'
+      printf '\t%-20s%s\n' '--timezone' 'See "-z" short-option'
+   )
+   exit "${SCRIPTEXIT}"
+}
+
 # Clean yum/DNF history
 function CleanHistory {
    err_exit "Executing yum clean..." NONE
@@ -233,7 +255,7 @@ function TimeSetup {
       err_exit "Setting default TZ to ${TARGTZ}..." NONE
       rm -f "${CHROOTMNT}/etc/localtime" || \
          err_exit "Failed to clear current TZ default"
-      chroot "${CHROOTMNT}" ln -s "/usr/share/zoneinfo/${TARGTZ}" | \
+      chroot "${CHROOTMNT}" ln -s "/usr/share/zoneinfo/${TARGTZ}" \
          /etc/localtime || \
          err_exit "Failed setting ${TARGTZ}"
    else
