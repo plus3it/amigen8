@@ -94,16 +94,20 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
+      printf '\t%-4s%s\n' '-a' 'List of repository-names to activate'
+      printf '\t%-6s%s' '' 'Default activation: '
+      GetDefaultRepos
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install'
-      printf '\t%-4s%s\n' '-r' 'List of reposiories to install RPMs from'
+      printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
-      printf '\t%-20s%s\n' '--repolist' 'See "-r" short-option'
+      printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
+      printf '\t%-20s%s\n' '--repo-rpms' 'See "-r" short-option'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -184,6 +188,10 @@ function PrepChroot {
 
    # Stage our base RPMs
    yumdownloader --destdir=/tmp "${BASEPKGS[@]}"
+   if [[ ${REPORPMS:-} != '' ]]
+   then
+      FetchCustomRepos
+   fi
 
    # Initialize RPM db in chroot-dev
    err_exit "Initializing RPM db..." NONE
@@ -249,15 +257,25 @@ function MainInstall {
         err_exit "Failed finding ${RPM}"
    done
 
-   #######################
-   ## Clean up yum history
-   err_exit "Executing yum clean..." NONE
-   chroot "${CHROOTMNT}" yum clean --enablerepo=* -y packages || \
-     err_exit "Failed executing yum clean"
+}
 
-   err_exit "Nuking DNF history DBs..." NONE
-   chroot "${CHROOTMNT}" rm -rf /var/lib/dnf/history.* || \
-     err_exit "Failed to nuke DNF history DBs"
+# Get custom repo-RPMs
+function FetchCustomRepos {
+   local REPORPM
+
+   for REPORPM in ${REPORPMS//,/ }
+   do
+      if [[ ${REPORPM} =~ http[s]*:// ]]
+      then
+         err_exit "Fetching ${REPORPM} with curl..." NONE
+         ( cd /tmp && curl --connect-timeout 15 -O  -skL "${REPORPM}" ) || \
+           err_exit "Fetch failed"
+      else
+         err_exit "Fetching ${REPORPM} with yum..." NONE
+         yumdownloader --destdir=/tmp "${REPORPM}" > /dev/null 2>&1 || \
+           err_exit "Fetch failed"
+      fi
+   done
 
 }
 
@@ -271,8 +289,8 @@ function SetFIPSmode {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o Fg:hm:r: \
-   --long help,mountpoint:,no-fips,repolist:,rpm-group \
+   -o a:Fg:hm:r: \
+   --long help,mountpoint:,no-fips,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -283,6 +301,19 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      -a|--repo-activation)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  OSREPOS=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -g|--rpm-group)
             case "$2" in
                "")
@@ -329,7 +360,7 @@ do
                   ;;
             esac
             ;;
-      -r|--repolist)
+      -r|--repo-rpms)
             case "$2" in
                "")
                   err_exit "Error: option required but not specified"
@@ -337,7 +368,7 @@ do
                   exit 1
                   ;;
                *)
-                  OSREPOS=${2}
+                  REPORPMS=${2}
                   shift 2;
                   ;;
             esac
