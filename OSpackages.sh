@@ -132,14 +132,12 @@ function GetDefaultRepos {
             extras
          )
          ;;
-      redhat-release-server)
+      redhat-release-server|redhat-release)
          BASEREPOS=(
             rhel-8-appstream-rhui-rpms
             rhel-8-baseos-rhui-rpms
             rhui-client-config-server-8
          )
-         echo "Not yet supported. Aborting" >&2
-         exit 1
          ;;
       *)
          echo "Unknown OS. Aborting" >&2
