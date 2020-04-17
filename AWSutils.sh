@@ -51,7 +51,7 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-C' 'Where to get AWS CLIv2'
+      printf '\t%-4s%s\n' '-C' 'Where to get AWS CLIv1'
       printf '\t%-4s%s\n' '-c' 'Where to get AWS CLIv2'
       printf '\t%-4s%s\n' '-d' 'Directory containing installable utility-RPMs'
       printf '\t%-4s%s\n' '-h' 'Print this message'
@@ -78,8 +78,10 @@ function InstallCLIv1 {
    elif [[ ${CLIV1SOURCE} == http[s]://*zip ]]
    then
       # Install python as necessary
-      if [[ ! -x /bin/python3 ]]
+      if [[ -x ${CHROOTMNT}/bin/python3 ]]
       then
+         err_exit "Python dependency met" NONE
+      else
          err_exit "Installing python3..." NONE
          yum --installroot="${CHROOTMNT}" install --quiet -y python3 || \
            err_exit "Failed installing python3"
@@ -118,10 +120,38 @@ function InstallCLIv1 {
 
 # Install AWS CLI version 2.x
 function InstallCLIv2 {
+   local INSTALLDIR
+
+   INSTALLDIR="opt/aws/cli"
+
    if [[ ${CLIV2SOURCE} == "UNDEF" ]]
    then
       err_exit "AWS CLI v2 not requested for install. Skipping..." NONE
+   elif [[ ${CLIV2SOURCE} == http[s]://*zip ]]
+   then
+      err_exit "Fetching ${CLIV2SOURCE}..." NONE
+      curl -skL "${CLIV2SOURCE}" -o "${CHROOTMNT}/tmp/awscli-exe.zip" || \
+        err_exit "Failed fetching ${CLIV2SOURCE}"
+
+      err_exit "Dearchiving awscli-exe.zip..." NONE
+      (
+         cd "${CHROOTMNT}/tmp"
+         unzip -q awscli-exe.zip
+      ) || \
+        err_exit "Failed dearchiving awscli-exe.zip"
+
+      err_exit "Installing AWS CLIv2..." NONE
+      chroot "${CHROOTMNT}" /bin/bash -c "(
+            /tmp/aws/install -i "/${INSTALLDIR}" -b /usr/bin
+         )" || \
+        err_exit "Failed installing AWS CLIv1"
+
+      err_exit "Cleaning up install files..." NONE
+      rm -rf "${CHROOTMNT}/tmp/awscli-exe.zip" \
+         "${CHROOTMNT}/tmp/aws" || \
+        err_exit "Failed cleaning up install files"
    fi
+
 }
 
 # Install AWS utils from "directory"
