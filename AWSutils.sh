@@ -68,12 +68,60 @@ function UsageMsg {
 
 # Install AWS CLI version 1.x
 function InstallCLIv1 {
-   true
+   local INSTALLDIR
+
+   INSTALLDIR="opt/aws/cli"
+
+   if [[ ${CLIV1SOURCE} == "UNDEF" ]]
+   then
+      err_exit "AWS CLI v1 not requested for install. Skipping..." NONE
+   elif [[ ${CLIV1SOURCE} == http[s]://*zip ]]
+   then
+      # Install python as necessary
+      if [[ ! -x /bin/python3 ]]
+      then
+         err_exit "Installing python3..." NONE
+         yum --installroot="${CHROOTMNT}" install --quiet -y python3 || \
+           err_exit "Failed installing python3"
+
+         err_exit "Creating /bin/python link..." NONE
+         chroot "${CHROOTMNT}" bash -c "(
+               alternatives --set python /usr/bin/python3
+            )" || \
+           err_exit "Failed creating /bin/python link"
+      fi
+
+      err_exit "Fetching ${CLIV1SOURCE}..." NONE
+      curl -skL "${CLIV1SOURCE}" -o "${CHROOTMNT}/tmp/awscli-bundle.zip" || \
+        err_exit "Failed fetching ${CLIV1SOURCE}"
+
+      err_exit "Dearchiving awscli-bundle.zip..." NONE
+      (
+         cd "${CHROOTMNT}/tmp"
+         unzip -q awscli-bundle.zip
+      ) || \
+        err_exit "Failed dearchiving awscli-bundle.zip"
+
+      err_exit "Installing AWS CLIv1..." NONE
+      chroot "${CHROOTMNT}" /bin/bash -c "(
+            /tmp/awscli-bundle/install -i "/${INSTALLDIR}" -b /usr/local/bin/aws
+         )" || \
+        err_exit "Failed installing AWS CLIv1"
+
+      err_exit "Cleaning up install files..." NONE
+      rm -rf "${CHROOTMNT}/tmp/awscli-bundle.zip" \
+         "${CHROOTMNT}/tmp/awscli-bundle" || \
+        err_exit "Failed cleaning up install files"
+   fi
+
 }
 
 # Install AWS CLI version 2.x
 function InstallCLIv2 {
-   true
+   if [[ ${CLIV2SOURCE} == "UNDEF" ]]
+   then
+      err_exit "AWS CLI v2 not requested for install. Skipping..." NONE
+   fi
 }
 
 # Install AWS utils from "directory"
@@ -163,3 +211,14 @@ do
    esac
 done
 
+###############
+# Do the work
+
+# Install AWS CLIv1
+InstallCLIv1
+
+# Install AWS CLIv2
+InstallCLIv2
+
+# Install AWS utils from directory
+InstallFromDir
