@@ -210,16 +210,13 @@ function ConfigureNetworking {
 function FirewalldSetup {
    err_exit "Setting up baseline firewall rules..." NONE
    chroot "${CHROOTMNT}" /bin/bash -c "(
-      firewall-offline-cmd --direct --add-rule ipv4 filter INPUT_direct 10 \
-         -m state --state RELATED,ESTABLISHED -m comment \
-         --comment 'Allow related and established connections' -j ACCEPT
-      firewall-offline-cmd --direct --add-rule ipv4 filter INPUT_direct 20 \
-         -i lo -j ACCEPT
-      firewall-offline-cmd --direct --add-rule ipv4 filter INPUT_direct 30 \
-         -d 127.0.0.0/8 '!' -i lo -j DROP
-      firewall-offline-cmd --direct --add-rule ipv4 filter INPUT_direct 50 \
-         -p tcp -m tcp --dport 22 -j ACCEPT
       firewall-offline-cmd --set-default-zone=drop
+      firewall-offline-cmd --zone=trusted --change-interface=lo
+      firewall-offline-cmd --zone=drop --add-service=ssh
+      firewall-offline-cmd --zone=drop --add-service=dhcpv6-client
+      firewall-offline-cmd --zone=drop --add-icmp-block-inversion
+      firewall-offline-cmd --zone=drop --add-icmp-block=fragmentation-needed
+      firewall-offline-cmd --zone=drop --add-icmp-block=packet-too-big
    )" || \
    err_exit "Failed etting up baseline firewall rules"
 }
