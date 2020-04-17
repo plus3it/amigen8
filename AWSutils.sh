@@ -9,6 +9,7 @@ CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 CLIV1SOURCE="${CLIV1SOURCE:-UNDEF}"
 CLIV2SOURCE="${CLIV2SOURCE:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
+SSMAGENT="${SSMAGENT:-UNDEF}"
 UTILSDIR="${UTILSDIR:-UNDEF}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
@@ -51,17 +52,19 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-C' 'Where to get AWS CLIv1'
-      printf '\t%-4s%s\n' '-c' 'Where to get AWS CLIv2'
+      printf '\t%-4s%s\n' '-C' 'Where to get AWS CLIv1 (Installs to /usr/local/bin)'
+      printf '\t%-4s%s\n' '-c' 'Where to get AWS CLIv2 (Installs to /usr/bin)'
       printf '\t%-4s%s\n' '-d' 'Directory containing installable utility-RPMs'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
+      printf '\t%-4s%s\n' '-s' 'Where to get AWS SSM Agent (Installs via RPM)'
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--cli-v1' 'See "-C" short-option'
       printf '\t%-20s%s\n' '--cli-v2' 'See "-c" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--utils-dir' 'See "-d" short-option'
+      printf '\t%-20s%s\n' '--ssm-agent' 'See "-s" short-option'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -159,12 +162,30 @@ function InstallFromDir {
    true
 }
 
+# Install AWS utils from "directory"
+function InstallSSMagent {
+
+   if [[ ${SSMAGENT} == "UNDEF" ]]
+   then
+      err_exit "AWS SSM-Agent not requested for install. Skipping..." NONE
+   elif [[ ${SSMAGENT} == *.rpm ]]
+   then
+      err_exit "Installing AWS SSM-Agent RPM..." NONE
+      yum --installroot="${CHROOTMNT}" install -y "${SSMAGENT}" || \
+        err_exit "Failed installing AWS SSM-Agent RPM"
+
+      err_exit "Ensuring AWS SSM-Agent is enabled..." NONE
+      chroot "${CHROOTMNT}" systemctl enable amazon-ssm-agent.service || \
+        err_exit "Failed ensuring AWS SSM-Agent is enabled"
+   fi
+}
+
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o C:c:d:hm:\
-   --long cli-v1:,cli-v2:,help,mountpoint:,utils-dir: \
+   -o C:c:d:hm:s:\
+   --long cli-v1:,cli-v2:,help,mountpoint:,ssm-agent:,utils-dir: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -201,6 +222,19 @@ do
                   ;;
             esac
             ;;
+      -d|--utils-dir)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  UTILSDIR="${2}"
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -h|--help)
             UsageMsg 0
             ;;
@@ -217,7 +251,7 @@ do
                   ;;
             esac
             ;;
-      -d|--utils-dir)
+      -s|--ssm-agent)
             case "$2" in
                "")
                   err_exit "Error: option required but not specified"
@@ -225,7 +259,7 @@ do
                   exit 1
                   ;;
                *)
-                  UTILSDIR="${2}"
+                  SSMAGENT="${2}"
                   shift 2;
                   ;;
             esac
@@ -249,6 +283,9 @@ InstallCLIv1
 
 # Install AWS CLIv2
 InstallCLIv2
+
+# Install AWS SSM-Agent
+InstallSSMagent
 
 # Install AWS utils from directory
 InstallFromDir
