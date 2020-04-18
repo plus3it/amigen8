@@ -53,6 +53,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-B' 'Boot-partition size (default: 500MiB)'
       printf '\t%-4s%s\n' '-d' 'Base dev-node used for build-device'
       printf '\t%-4s%s\n' '-f' 'Filesystem-type used for root filesystems (default: xfs)'
+      printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
       printf '\t%-6s%s\n' '' 'Default layout:'
       printf '\t%-8s%s\n' '' '/:rootVol:4\n'
@@ -67,6 +68,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--boot-size' 'See "-B" short-option'
       printf '\t%-20s%s\n' '--disk' 'See "-d" short-option'
       printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
+      printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--partition-string' 'See "-p" short-option'
       printf '\t%-20s%s\n' '--rootlabel' 'See "-r" short-option'
       printf '\t%-20s%s\n' '--vgname' 'See "-v" short-option'
@@ -293,7 +295,8 @@ do
                   shift 2;
                   ;;
             esac
-            ;;      -v|--vgname)
+            ;;
+      -v|--vgname)
             case "$2" in
                "")
                   err_exit "Error: option required but not specified"

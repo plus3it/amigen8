@@ -65,6 +65,7 @@ function UsageMsg {
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
       printf '\t%-4s%s\n' '-d' 'Device to contain the OS partition(s) (e.g., "/dev/xvdf")'
+      printf '\t%-4s%s\n' '-f' 'Filesystem-type used chroot-dev device(s) (default: "xfs")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
@@ -75,8 +76,10 @@ function UsageMsg {
       done
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--disk' 'See "-d" short-option'
+      printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
+      printf '\t%-20s%s\n' '--no-lvm' 'LVM2 objects not used'
       printf '\t%-20s%s\n' '--partition-string' 'See "-p" short-option'
    )
    exit "${SCRIPTEXIT}"
