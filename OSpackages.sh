@@ -230,19 +230,19 @@ function MainInstall {
    echo "${RPMFILE}" > /dev/null 2>&1
 
    # Expand the "core" RPM group and store as array
-   mapfile -t INLCLUDEPKGS < <(
+   mapfile -t INCLUDEPKGS < <(
       yum groupinfo "${RPMGRP}" 2>&1 | \
       sed -n '/Mandatory/,/Optional Packages:/p' | \
       sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
    )
 
    # Add extra packages to include-list (array)
-   INLCLUDEPKGS+=( "${INLCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
+   INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
 
    # Remove excluded packages from include-list
    for EXCLUDE in ${EXCLUDEPKGS[*]}
    do
-       INLCLUDEPKGS=( "${INLCLUDEPKGS[@]//*${EXCLUDE}*}" )
+       INCLUDEPKGS=( "${INCLUDEPKGS[@]//*${EXCLUDE}*}" )
    done
 
    # Install packages
@@ -252,7 +252,7 @@ function MainInstall {
 
    # Verify installation
    err_exit "Verifying insstalled RPMs" NONE
-   for RPM in ${INLCLUDEPKGS[*]}
+   for RPM in ${INCLUDEPKGS[*]}
    do
       err_exit "Checking presence of ${RPM}..." NONE
       chroot "${CHROOTMNT}" bash -c "rpm -q ${RPM}" || \
