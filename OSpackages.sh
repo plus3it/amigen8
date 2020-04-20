@@ -270,7 +270,7 @@ function FetchCustomRepos {
       if [[ ${REPORPM} =~ http[s]*:// ]]
       then
          err_exit "Fetching ${REPORPM} with curl..." NONE
-         ( cd /tmp && curl --connect-timeout 15 -O  -skL "${REPORPM}" ) || \
+         ( cd /tmp && curl --connect-timeout 15 -O  -sL "${REPORPM}" ) || \
            err_exit "Fetch failed"
       else
          err_exit "Fetching ${REPORPM} with yum..." NONE

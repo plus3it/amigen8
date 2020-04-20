@@ -97,7 +97,7 @@ function InstallCLIv1 {
       fi
 
       err_exit "Fetching ${CLIV1SOURCE}..." NONE
-      curl -skL "${CLIV1SOURCE}" -o "${CHROOTMNT}/tmp/awscli-bundle.zip" || \
+      curl -sL "${CLIV1SOURCE}" -o "${CHROOTMNT}/tmp/awscli-bundle.zip" || \
         err_exit "Failed fetching ${CLIV1SOURCE}"
 
       err_exit "Dearchiving awscli-bundle.zip..." NONE
@@ -133,7 +133,7 @@ function InstallCLIv2 {
    elif [[ ${CLIV2SOURCE} == http[s]://*zip ]]
    then
       err_exit "Fetching ${CLIV2SOURCE}..." NONE
-      curl -skL "${CLIV2SOURCE}" -o "${CHROOTMNT}/tmp/awscli-exe.zip" || \
+      curl -sL "${CLIV2SOURCE}" -o "${CHROOTMNT}/tmp/awscli-exe.zip" || \
         err_exit "Failed fetching ${CLIV2SOURCE}"
 
       err_exit "Dearchiving awscli-exe.zip..." NONE
