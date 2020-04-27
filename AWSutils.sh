@@ -8,6 +8,7 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 CLIV1SOURCE="${CLIV1SOURCE:-UNDEF}"
 CLIV2SOURCE="${CLIV2SOURCE:-UNDEF}"
+ICONNECTSRC="${ICONNECTSRC:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 SSMAGENT="${SSMAGENT:-UNDEF}"
 UTILSDIR="${UTILSDIR:-UNDEF}"
@@ -56,12 +57,14 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-c' 'Where to get AWS CLIv2 (Installs to /usr/bin)'
       printf '\t%-4s%s\n' '-d' 'Directory containing installable utility-RPMs'
       printf '\t%-4s%s\n' '-h' 'Print this message'
+      printf '\t%-4s%s\n' '-i' 'Where to get AWS InstanceConnect (RPM or git URL)'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-s' 'Where to get AWS SSM Agent (Installs via RPM)'
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--cli-v1' 'See "-C" short-option'
       printf '\t%-20s%s\n' '--cli-v2' 'See "-c" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
+      printf '\t%-20s%s\n' '--instance-connect' 'See "-i" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--utils-dir' 'See "-d" short-option'
       printf '\t%-20s%s\n' '--ssm-agent' 'See "-s" short-option'
@@ -162,6 +165,91 @@ function InstallFromDir {
    true
 }
 
+# Install AWS InstanceConnect
+function InstallInstanceConnect {
+   local BUILD_DIR
+   local ICRPM
+
+   BUILD_DIR="/tmp/aws-ec2-instance-connect-config"
+
+   if [[ ${ICONNECTSRC} == "UNDEF" ]]
+   then
+      err_exit "AWS Instance-Connect not requested for install. Skipping..." NONE
+   elif [[ ${ICONNECTSRC} == *.rpm ]]
+   then
+      err_exit "Installing v${ICONNECTSRC} via yum..." NONE
+      yum install --quiet -y "${ICONNECTSRC}" || \
+        err_exit "Failed installing v${ICONNECTSRC}"
+   elif [[ ${ICONNECTSRC} == *.git ]]
+   then
+      err_exit "Installing InstanceConnect from Git" NONE
+
+      # Fetch via git
+      git clone "${ICONNECTSRC}" "${BUILD_DIR}" || \
+        err_exit "Failed fetching ${ICONNECTSRC}"
+
+      # Build the RPM
+      if [[ $( command -v make )$? -ne 0 ]]
+      then
+         err_exit "No make-utility found in PATH"
+      fi
+
+      ( cd "${BUILD_DIR}" && make rpm ) || \
+        err_exit "Failed to make InstanceConnect RPM"
+
+      # Install the RPM
+      ICRPM="$( stat -c '%n' "${BUILD_DIR}/*noarch.rpm" 2> /dev/null )"
+      if [[ -n ${ICRPM} ]]
+      then
+          yum --installroot="${CHROOTMNT}" install -y "${ICRPM}" || \
+          err_exit "Failed installing ${ICRPM}"
+      else
+          err_exit "Unable to find RPM in ${BUILD_DIR}"
+      fi
+
+   fi
+
+   # Ensure service is enabled
+   if [[ $( systemctl cat ec2-instance-connect > /dev/null 2>&1 )$? -eq 0 ]]
+   then
+       err_exit "Enabling ec2-instance-connect service..." NONE
+       systemctl enable ec2-instance-connect || \
+         err_exit "Failed enabling ec2-instance-connect service"
+   fi
+
+   # Ensure SELinux is properly configured
+   err_exit "Creating SELinux policy for InstanceConnect..." NONE
+   (
+    printf 'module instance-connect 1.0;\n\n'
+    printf 'require {\n'
+    printf '\ttype ssh_keygen_exec_t;\n'
+    printf '\ttype http_port_t;\n'
+    printf '\ttype sshd_t;\n'
+    printf '\tclass process setpgid;\n'
+    printf '\tclass tcp_socket name_connect;\n'
+    printf '\tclass file { execute execute_no_trans open read };\n'
+    printf '}\n\n'
+    printf '#============= sshd_t ==============\n\n'
+    printf '#!!!! This avc can be allowed using one of the these booleans:\n'
+    printf '#     authlogin_yubikey, nis_enabled\n'
+    printf 'allow sshd_t http_port_t:tcp_socket name_connect;\n'
+    printf 'allow sshd_t self:process setpgid;\n'
+    printf 'allow sshd_t ssh_keygen_exec_t:file '
+    printf '{ execute execute_no_trans open read };\n'
+   ) > "${CHROOTMNT}/tmp/instance-connect.te" || \
+     err_exit "Failed creating SELinux policy for InstanceConnect"
+    
+   err_exit "Compiling/installing SELinux policy for InstanceConnect..." NONE
+   chroot "${CHROOTMNT}" bash -c "(
+         cd /tmp
+         checkmodule -M -m -o instance-connect.mod instance-connect.te
+         semodule_package -o instance-connect2.pp -m instance-connect.mod
+         semodule -i instance-connect2.pp
+      )" || \
+     err_exit "Failed compiling/installing SELinux policy for InstanceConnect"
+
+}
+
 # Install AWS utils from "directory"
 function InstallSSMagent {
 
@@ -184,8 +272,8 @@ function InstallSSMagent {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o C:c:d:hm:s:\
-   --long cli-v1:,cli-v2:,help,mountpoint:,ssm-agent:,utils-dir: \
+   -o C:c:d:hi:m:s:\
+   --long cli-v1:,cli-v2:,help,instance-connect:,mountpoint:,ssm-agent:,utils-dir: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -238,6 +326,19 @@ do
       -h|--help)
             UsageMsg 0
             ;;
+      -i|--instance-connect)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  ICONNECTSRC="${2}"
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -m|--mountpoint)
             case "$2" in
                "")
@@ -286,6 +387,9 @@ InstallCLIv2
 
 # Install AWS SSM-Agent
 InstallSSMagent
+
+# Install AWS InstanceConnect
+InstallInstanceConnect
 
 # Install AWS utils from directory
 InstallFromDir
