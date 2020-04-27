@@ -212,11 +212,15 @@ function InstallInstanceConnect {
    fi
 
    # Ensure service is enabled
-   if [[ $( systemctl cat ec2-instance-connect > /dev/null 2>&1 )$? -eq 0 ]]
+   if [[ $( chroot "${CHROOTMNT}" bash -c "(
+               systemctl cat ec2-instance-connect > /dev/null 2>&1
+            )" )$? -eq 0 ]]
    then
-       err_exit "Enabling ec2-instance-connect service..." NONE
-       systemctl enable ec2-instance-connect || \
-         err_exit "Failed enabling ec2-instance-connect service"
+      err_exit "Enabling ec2-instance-connect service..." NONE
+      systemctl enable ec2-instance-connect || \
+        err_exit "Failed enabling ec2-instance-connect service"
+   else
+      err_exit "Could not find ec2-instance-connect in ${CHROOTMNT}"
    fi
 
    # Ensure SELinux is properly configured
