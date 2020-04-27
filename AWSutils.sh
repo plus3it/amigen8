@@ -194,15 +194,17 @@ function InstallInstanceConnect {
          err_exit "No make-utility found in PATH"
       fi
 
+      err_exit "Making InstanceConnect RPM..." NONE
       ( cd "${BUILD_DIR}" && make rpm ) || \
         err_exit "Failed to make InstanceConnect RPM"
 
       # Install the RPM
-      ICRPM="$( stat -c '%n' "${BUILD_DIR}/*noarch.rpm" 2> /dev/null )"
+      ICRPM="$( stat -c '%n' "${BUILD_DIR}"/*noarch.rpm 2> /dev/null )"
       if [[ -n ${ICRPM} ]]
       then
+          err_exit "Installing ${ICRPM}..."
           yum --installroot="${CHROOTMNT}" install -y "${ICRPM}" || \
-          err_exit "Failed installing ${ICRPM}"
+            err_exit "Failed installing ${ICRPM}"
       else
           err_exit "Unable to find RPM in ${BUILD_DIR}"
       fi
