@@ -202,7 +202,7 @@ function InstallInstanceConnect {
       ICRPM="$( stat -c '%n' "${BUILD_DIR}"/*noarch.rpm 2> /dev/null )"
       if [[ -n ${ICRPM} ]]
       then
-          err_exit "Installing ${ICRPM}..."
+          err_exit "Installing ${ICRPM}..." NONE
           yum --installroot="${CHROOTMNT}" install -y "${ICRPM}" || \
             err_exit "Failed installing ${ICRPM}"
       else
