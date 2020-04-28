@@ -169,8 +169,10 @@ function InstallFromDir {
 function InstallInstanceConnect {
    local BUILD_DIR
    local ICRPM
+   local SELPOL
 
    BUILD_DIR="/tmp/aws-ec2-instance-connect-config"
+   SELPOL="ec2-instance-connect"
 
    if [[ ${ICONNECTSRC} == "UNDEF" ]]
    then
@@ -224,6 +226,9 @@ function InstallInstanceConnect {
    fi
 
    # Ensure SELinux is properly configured
+   #   Necessary pending resolution of:
+   #   - https://github.com/aws/aws-ec2-instance-connect-config/issues/2
+   #   - https://github.com/aws/aws-ec2-instance-connect-config/issues/19
    err_exit "Creating SELinux policy for InstanceConnect..." NONE
    (
     printf 'module ec2-instance-connect 1.0;\n\n'
@@ -242,16 +247,16 @@ function InstallInstanceConnect {
     printf 'allow sshd_t ssh_keygen_exec_t:file '
     printf '{ execute execute_no_trans open read };\n'
     printf 'allow sshd_t http_port_t:tcp_socket name_connect;\n'
-   ) > "${CHROOTMNT}/tmp/instance-connect.te" || \
+   ) > "${CHROOTMNT}/tmp/${SELPOL}.te" || \
      err_exit "Failed creating SELinux policy for InstanceConnect"
-    
+
    err_exit "Compiling/installing SELinux policy for InstanceConnect..." NONE
-   chroot "${CHROOTMNT}" bash -c "(
+   chroot "${CHROOTMNT}" /bin/bash -c "
          cd /tmp
-         checkmodule -M -m -o ec2-instance-connect.mod ec2-instance-connect.te
-         semodule_package -o ec2-instance-connect.pp -m ec2-instance-connect.mod
-         semodule -i ec2-instance-connect.pp
-      )" || \
+         checkmodule -M -m -o ${SELPOL}.mod ${SELPOL}.te
+         semodule_package -o ${SELPOL}.pp -m ${SELPOL}.mod
+         semodule -i ${SELPOL}.pp && rm ${SELPOL}.*
+      " || \
      err_exit "Failed compiling/installing SELinux policy for InstanceConnect"
 
 }
