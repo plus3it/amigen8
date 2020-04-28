@@ -224,15 +224,34 @@ function MainInstall {
    YUMCMD="yum --nogpgcheck --installroot=${CHROOTMNT} "
    YUMCMD+="--disablerepo=* --enablerepo=${OSREPOS} install -y "
 
-   # Stub...
-   echo "${RPMFILE}" > /dev/null 2>&1
-
-   # Expand the "core" RPM group and store as array
-   mapfile -t INCLUDEPKGS < <(
-      yum groupinfo "${RPMGRP}" 2>&1 | \
-      sed -n '/Mandatory/,/Optional Packages:/p' | \
-      sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
-   )
+   # If RPM-file not specified, use a group from repo metadata
+   if [[ ${RPMFILE} == "UNDEF" ]]
+   then
+      # Expand the "core" RPM group and store as array
+      mapfile -t INCLUDEPKGS < <(
+         yum groupinfo "${RPMGRP}" 2>&1 | \
+         sed -n '/Mandatory/,/Optional Packages:/p' | \
+         sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
+      )
+   # Try to read from local file
+   elif [[ -s ${RPMFILE} ]]
+   then
+      err_exit "Reading manifest-file" NONE
+      mapfile -t INCLUDEPKGS < "${RPMFILE}"
+   # Try to read from URL
+   elif [[ ${RPMFILE} =~ http([s]{1}|):// ]]
+   then
+      err_exit "Reading manifest from ${RPMFILE}" NONE
+      mapfile -t INCLUDEPKGS < <( curl -sL "${RPMFILE}" )
+      if [[ ${#INCLUDEPKGS[*]} -eq 0 ]] ||
+         [[ ${INCLUDEPKGS[*]} =~ "Not Found" ]] ||
+         [[ ${INCLUDEPKGS[*]} =~ "Access Denied" ]]
+      then
+         err_exit "Failed reading manifest from URL"
+      fi
+   else
+      err_exit "The manifest file does not exist or is empty"
+   fi
 
    # Add extra packages to include-list (array)
    INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
