@@ -7,7 +7,6 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
-FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
 MINXTRAPKGS=(
       chrony
       cloud-init
@@ -99,7 +98,6 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-a' 'List of repository-names to activate'
       printf '\t%-6s%s' '' 'Default activation: '
       GetDefaultRepos
-      printf '\t%-4s%s\n' '-F' 'Disable FIPS support (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
@@ -107,7 +105,6 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
-      printf '\t%-20s%s\n' '--no-fips' 'See "-F" shortt-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
       printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
@@ -281,18 +278,13 @@ function FetchCustomRepos {
 
 }
 
-# Set FIPS mode
-function SetFIPSmode {
-   true
-}
-
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
    -o a:Fg:hm:r: \
-   --long help,mountpoint:,no-fips,repo-activation:,repo-rpms:,rpm-group: \
+   --long help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -329,10 +321,6 @@ do
                   ;;
             esac
             ;;
-      -F|--no-fips)
-           FIPSDISABLE="true"
-           shift 1;
-           ;;
       -h|--help)
             UsageMsg 0
             ;;
