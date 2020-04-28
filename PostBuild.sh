@@ -8,8 +8,8 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
-
-MAINTUSR=${MAINTUSR:-"maintuser"}
+MAINTUSR="${MAINTUSR:-"maintuser"}"
+NOTMPFS="${NOTMPFS:-UNDEF}"
 TARGTZ="${TARGTZ:-UTC}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
@@ -379,8 +379,10 @@ function TimeSetup {
 
 # Make /tmp a tmpfs
 function SetupTmpfs {
-   if [[ ${NOTMPFS:-} != "true" ]]
+   if [[ ${NOTMPFS:-} == "true" ]]
    then
+      err_exit "Requested no use of tmpfs for /tmp" NONE
+   else
       err_exit "Unmasking tmp.mount unit..." NONE
       chroot "${CHROOTMNT}" /bin/systemctl unmask tmp.mount || \
         err_exit "Failed unmasking tmp.mount unit"
@@ -430,7 +432,7 @@ do
             esac
             ;;
       --no-tmpfs)
-            NOTMPFS=true
+            NOTMPFS="true"
             ;;
       -h|--help)
             UsageMsg 0

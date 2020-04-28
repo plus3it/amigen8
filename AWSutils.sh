@@ -72,6 +72,25 @@ function UsageMsg {
    exit "${SCRIPTEXIT}"
 }
 
+# Make sure Python3 is present when needed
+function EnsurePy3 {
+   # Install python as necessary
+   if [[ -x ${CHROOTMNT}/bin/python3 ]]
+   then
+      err_exit "Python dependency met" NONE
+   else
+      err_exit "Installing python3..." NONE
+      yum --installroot="${CHROOTMNT}" install --quiet -y python3 || \
+        err_exit "Failed installing python3"
+
+      err_exit "Creating /bin/python link..." NONE
+      chroot "${CHROOTMNT}" bash -c "(
+            alternatives --set python /usr/bin/python3
+         )" || \
+        err_exit "Failed creating /bin/python link"
+   fi
+}
+
 # Install AWS CLI version 1.x
 function InstallCLIv1 {
    local INSTALLDIR
@@ -83,21 +102,8 @@ function InstallCLIv1 {
       err_exit "AWS CLI v1 not requested for install. Skipping..." NONE
    elif [[ ${CLIV1SOURCE} == http[s]://*zip ]]
    then
-      # Install python as necessary
-      if [[ -x ${CHROOTMNT}/bin/python3 ]]
-      then
-         err_exit "Python dependency met" NONE
-      else
-         err_exit "Installing python3..." NONE
-         yum --installroot="${CHROOTMNT}" install --quiet -y python3 || \
-           err_exit "Failed installing python3"
-
-         err_exit "Creating /bin/python link..." NONE
-         chroot "${CHROOTMNT}" bash -c "(
-               alternatives --set python /usr/bin/python3
-            )" || \
-           err_exit "Failed creating /bin/python link"
-      fi
+      # Make sure Python3 is present
+      EnsurePy3
 
       err_exit "Fetching ${CLIV1SOURCE}..." NONE
       curl -sL "${CLIV1SOURCE}" -o "${CHROOTMNT}/tmp/awscli-bundle.zip" || \
@@ -120,6 +126,12 @@ function InstallCLIv1 {
       rm -rf "${CHROOTMNT}/tmp/awscli-bundle.zip" \
          "${CHROOTMNT}/tmp/awscli-bundle" || \
         err_exit "Failed cleaning up install files"
+   elif [[ ${CLIV1SOURCE} == pip,* ]]
+   then
+      # Make sure Python3 is present
+      EnsurePy3
+
+      python3 -m pip install --upgrade "${CLIV1SOURCE/pip*,}"
    fi
 
 }
@@ -278,6 +290,7 @@ function InstallSSMagent {
         err_exit "Failed ensuring AWS SSM-Agent is enabled"
    fi
 }
+
 
 ######################
 ## Main program-flow
