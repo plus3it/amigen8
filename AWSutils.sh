@@ -226,31 +226,31 @@ function InstallInstanceConnect {
    # Ensure SELinux is properly configured
    err_exit "Creating SELinux policy for InstanceConnect..." NONE
    (
-    printf 'module instance-connect 1.0;\n\n'
+    printf 'module ec2-instance-connect 1.0;\n\n'
     printf 'require {\n'
     printf '\ttype ssh_keygen_exec_t;\n'
-    printf '\ttype http_port_t;\n'
     printf '\ttype sshd_t;\n'
+    printf '\ttype http_port_t;\n'
     printf '\tclass process setpgid;\n'
     printf '\tclass tcp_socket name_connect;\n'
+    printf '\tclass file map;\n'
     printf '\tclass file { execute execute_no_trans open read };\n'
     printf '}\n\n'
     printf '#============= sshd_t ==============\n\n'
-    printf '#!!!! This avc can be allowed using one of the these booleans:\n'
-    printf '#     authlogin_yubikey, nis_enabled\n'
-    printf 'allow sshd_t http_port_t:tcp_socket name_connect;\n'
     printf 'allow sshd_t self:process setpgid;\n'
+    printf 'allow sshd_t ssh_keygen_exec_t:file map;\n'
     printf 'allow sshd_t ssh_keygen_exec_t:file '
     printf '{ execute execute_no_trans open read };\n'
+    printf 'allow sshd_t http_port_t:tcp_socket name_connect;\n'
    ) > "${CHROOTMNT}/tmp/instance-connect.te" || \
      err_exit "Failed creating SELinux policy for InstanceConnect"
     
    err_exit "Compiling/installing SELinux policy for InstanceConnect..." NONE
    chroot "${CHROOTMNT}" bash -c "(
          cd /tmp
-         checkmodule -M -m -o instance-connect.mod instance-connect.te
-         semodule_package -o instance-connect2.pp -m instance-connect.mod
-         semodule -i instance-connect2.pp
+         checkmodule -M -m -o ec2-instance-connect.mod ec2-instance-connect.te
+         semodule_package -o ec2-instance-connect.pp -m ec2-instance-connect.mod
+         semodule -i ec2-instance-connect.pp
       )" || \
      err_exit "Failed compiling/installing SELinux policy for InstanceConnect"
 
