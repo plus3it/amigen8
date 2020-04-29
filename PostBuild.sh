@@ -61,7 +61,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
-      printf '\t%-20s%s\n' '--no-fips' 'See "-F" shortt-option'
+      printf '\t%-20s%s\n' '--no-fips' 'See "-F" short-option'
       printf '\t%-20s%s\n' '--no-tmpfs' 'Disable /tmp as tmpfs behavior'
       printf '\t%-20s%s\n' '--timezone' 'See "-z" short-option'
    )

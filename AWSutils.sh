@@ -131,7 +131,7 @@ function InstallCLIv1 {
       # Make sure Python3 is present
       EnsurePy3
 
-      python3 -m pip install --upgrade "${CLIV1SOURCE/pip*,}"
+      chroot "${CHROOTMNT}" /usr/bin/pip3 install --upgrade "${CLIV1SOURCE/pip*,}"
    fi
 
 }
@@ -192,7 +192,7 @@ function InstallInstanceConnect {
    elif [[ ${ICONNECTSRC} == *.rpm ]]
    then
       err_exit "Installing v${ICONNECTSRC} via yum..." NONE
-      yum install --quiet -y "${ICONNECTSRC}" || \
+      yum --installroot="${CHROOTMNT}" --quiet install -y "${ICONNECTSRC}" || \
         err_exit "Failed installing v${ICONNECTSRC}"
    elif [[ ${ICONNECTSRC} == *.git ]]
    then
@@ -231,7 +231,7 @@ function InstallInstanceConnect {
             )" )$? -eq 0 ]]
    then
       err_exit "Enabling ec2-instance-connect service..." NONE
-      systemctl enable ec2-instance-connect || \
+      chroot "${CHROOTMNT}" systemctl enable ec2-instance-connect || \
         err_exit "Failed enabling ec2-instance-connect service"
    else
       err_exit "Could not find ec2-instance-connect in ${CHROOTMNT}"

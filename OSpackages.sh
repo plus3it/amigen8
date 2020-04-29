@@ -233,6 +233,14 @@ function MainInstall {
          sed -n '/Mandatory/,/Optional Packages:/p' | \
          sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
       )
+
+      # Don't assume that just because the operator didn't pass
+      # a manifest-file that the repository is properly run and has
+      # the group metadata that it ought to have
+      if [[ ${#INCLUDEPKGS[*]} -eq 0 ]]
+      then
+         err_exit "Oops: unable to parse metadata from repos"
+      fi
    # Try to read from local file
    elif [[ -s ${RPMFILE} ]]
    then
