@@ -7,7 +7,6 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
-FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
 MINXTRAPKGS=(
       chrony
       cloud-init
@@ -22,6 +21,7 @@ MINXTRAPKGS=(
       grubby
       kernel
       kexec-tools
+      libnsl
       lvm2
       rng-tools
       unzip
@@ -99,7 +99,6 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-a' 'List of repository-names to activate'
       printf '\t%-6s%s' '' 'Default activation: '
       GetDefaultRepos
-      printf '\t%-4s%s\n' '-F' 'Disable FIPS support (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
@@ -107,7 +106,6 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
-      printf '\t%-20s%s\n' '--no-fips' 'See "-F" shortt-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
       printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
@@ -226,15 +224,42 @@ function MainInstall {
    YUMCMD="yum --nogpgcheck --installroot=${CHROOTMNT} "
    YUMCMD+="--disablerepo=* --enablerepo=${OSREPOS} install -y "
 
-   # Stub...
-   echo "${RPMFILE}" > /dev/null 2>&1
+   # If RPM-file not specified, use a group from repo metadata
+   if [[ ${RPMFILE} == "UNDEF" ]]
+   then
+      # Expand the "core" RPM group and store as array
+      mapfile -t INCLUDEPKGS < <(
+         yum groupinfo "${RPMGRP}" 2>&1 | \
+         sed -n '/Mandatory/,/Optional Packages:/p' | \
+         sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
+      )
 
-   # Expand the "core" RPM group and store as array
-   mapfile -t INCLUDEPKGS < <(
-      yum groupinfo "${RPMGRP}" 2>&1 | \
-      sed -n '/Mandatory/,/Optional Packages:/p' | \
-      sed -e '/^ [A-Z]/d' -e 's/^[[:space:]]*[-=+[:space:]]//'
-   )
+      # Don't assume that just because the operator didn't pass
+      # a manifest-file that the repository is properly run and has
+      # the group metadata that it ought to have
+      if [[ ${#INCLUDEPKGS[*]} -eq 0 ]]
+      then
+         err_exit "Oops: unable to parse metadata from repos"
+      fi
+   # Try to read from local file
+   elif [[ -s ${RPMFILE} ]]
+   then
+      err_exit "Reading manifest-file" NONE
+      mapfile -t INCLUDEPKGS < "${RPMFILE}"
+   # Try to read from URL
+   elif [[ ${RPMFILE} =~ http([s]{1}|):// ]]
+   then
+      err_exit "Reading manifest from ${RPMFILE}" NONE
+      mapfile -t INCLUDEPKGS < <( curl -sL "${RPMFILE}" )
+      if [[ ${#INCLUDEPKGS[*]} -eq 0 ]] ||
+         [[ ${INCLUDEPKGS[*]} =~ "Not Found" ]] ||
+         [[ ${INCLUDEPKGS[*]} =~ "Access Denied" ]]
+      then
+         err_exit "Failed reading manifest from URL"
+      fi
+   else
+      err_exit "The manifest file does not exist or is empty"
+   fi
 
    # Add extra packages to include-list (array)
    INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
@@ -281,18 +306,13 @@ function FetchCustomRepos {
 
 }
 
-# Set FIPS mode
-function SetFIPSmode {
-   true
-}
-
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
    -o a:Fg:hm:r: \
-   --long help,mountpoint:,no-fips,repo-activation:,repo-rpms:,rpm-group: \
+   --long help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -329,10 +349,6 @@ do
                   ;;
             esac
             ;;
-      -F|--no-fips)
-           FIPSDISABLE="true"
-           shift 1;
-           ;;
       -h|--help)
             UsageMsg 0
             ;;

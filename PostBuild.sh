@@ -7,7 +7,9 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
-MAINTUSR=${MAINTUSR:-"maintuser"}
+FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
+MAINTUSR="${MAINTUSR:-"maintuser"}"
+NOTMPFS="${NOTMPFS:-UNDEF}"
 TARGTZ="${TARGTZ:-UTC}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
@@ -51,6 +53,7 @@ function UsageMsg {
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
       printf '\t%-4s%s\n' '-f' 'Filesystem-type of chroo-devs (e.g., "xfs")'
+      printf '\t%-4s%s\n' '-F' 'Disable FIPS support (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-z' 'Initial timezone of build-target (default: "UTC")'
@@ -58,6 +61,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
+      printf '\t%-20s%s\n' '--no-fips' 'See "-F" short-option'
       printf '\t%-20s%s\n' '--no-tmpfs' 'Disable /tmp as tmpfs behavior'
       printf '\t%-20s%s\n' '--timezone' 'See "-z" short-option'
    )
@@ -286,7 +290,10 @@ function GrubSetup {
    GRUBCMDLINE+="console=tty0 "
    GRUBCMDLINE+="console=ttyS0,115200n8 "
    GRUBCMDLINE+="net.ifnames=0 "
-   GRUBCMDLINE+="fips=0"
+   if [[ ${FIPSDISABLE} == "true" ]]
+   then
+      GRUBCMDLINE+="fips=0"
+   fi
 
    # Write default/grub contents
    err_exit "Writing default/grub file..." NONE
@@ -314,10 +321,18 @@ function GrubSetup {
      err_exit "Failed to install GRUB config-file"
 
    # Make intramfs in chroot-dev
-   err_exit "Installing initramfs..." NONE
-   chroot "${CHROOTMNT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
-      "${CHROOTKRN}" || \
-     err_exit "Failed installing initramfs"
+   if [[ ${FIPSDISABLE} == "UNDEF" ]]
+   then
+      err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
+      chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
+        err_exit "Failed to enable FIPS mode"
+   else
+      err_exit "Installing initramfs..." NONE
+      chroot "${CHROOTMNT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
+         "${CHROOTKRN}" || \
+        err_exit "Failed installing initramfs"
+   fi
+
 
 }
 
@@ -364,8 +379,10 @@ function TimeSetup {
 
 # Make /tmp a tmpfs
 function SetupTmpfs {
-   if [[ ${NOTMPFS:-} != "true" ]]
+   if [[ ${NOTMPFS:-} == "true" ]]
    then
+      err_exit "Requested no use of tmpfs for /tmp" NONE
+   else
       err_exit "Unmasking tmp.mount unit..." NONE
       chroot "${CHROOTMNT}" /bin/systemctl unmask tmp.mount || \
         err_exit "Failed unmasking tmp.mount unit"
@@ -381,8 +398,8 @@ function SetupTmpfs {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o f:hm:z: \
-   --long fstype:,help,mountpoint:,no-tmpfs,timezone \
+   -o Ff:hm:z: \
+   --long fstype:,help,mountpoint:,no-fips,no-tmpfs,timezone \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -393,6 +410,10 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      -F|--no-fips)
+           FIPSDISABLE="true"
+           shift 1;
+           ;;
       -f|--fstype)
             case "$2" in
                "")
@@ -411,7 +432,7 @@ do
             esac
             ;;
       --no-tmpfs)
-            NOTMPFS=true
+            NOTMPFS="true"
             ;;
       -h|--help)
             UsageMsg 0

@@ -6,6 +6,7 @@ set -eu -o pipefail
 #################################################################
 PROGNAME=$(basename "$0")
 BOOTDEVSZ="${BOOTDEVSZ:-500m}"
+CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
 
@@ -124,14 +125,14 @@ function CarveLVM {
    then
       err_exit "Skipping explicit pvcreate opertion... " NONE
    else
-      err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE}2..." NONE
-      pvcreate "${CHROOTDEV}${PARTPRE}2" || \
+      err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE:-}2..." NONE
+      pvcreate "${CHROOTDEV}${PARTPRE:-}2" || \
         err_exit "PV creation failed. Aborting!"
    fi
 
    # Create root VolumeGroup
    err_exit "Creating LVM2 volume-group ${VGNAME}..." NONE
-   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE}2" || \
+   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE:-}2" || \
      err_exit "VG creation failed. Aborting!"
 
    # Create LVM2 volume-objects by iterating ${PARTITIONARRAY}
@@ -194,9 +195,9 @@ function CarveBare {
      err_exit "Failed laying down new partition-table"
 
    # Create FS on partitions
-   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE}2..." NONE
+   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}2..." NONE
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" \
-      "${CHROOTDEV}${PARTPRE}2" || \
+      "${CHROOTDEV}${PARTPRE:-}2" || \
      err_exit "Failed creating filesystem"
 }
 
@@ -327,7 +328,10 @@ then
 fi
 
 # See if our carve-target is an NVMe
-if [[ ${CHROOTDEV} =~ /dev/nvme ]]
+if [[ ${CHROOTDEV} == "UNDEF" ]]
+then
+   err_exit "Failed to specify partitioning-target. Aborting"
+elif [[ ${CHROOTDEV} =~ /dev/nvme ]]
 then
    PARTPRE="p"
 else
@@ -341,4 +345,9 @@ then
 elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
    CarveBare
+elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+then
+   err_exit "Failed to specifiy a partitioning-method. Aborting"
+else
+   err_exit "The '-r'/'--rootlabel' and '-v'/'--vgname' flag-options are mutually-exclusive. Exiting." 0
 fi
