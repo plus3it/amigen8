@@ -125,14 +125,14 @@ function CarveLVM {
    then
       err_exit "Skipping explicit pvcreate opertion... " NONE
    else
-      err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE}2..." NONE
-      pvcreate "${CHROOTDEV}${PARTPRE}2" || \
+      err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE:-}2..." NONE
+      pvcreate "${CHROOTDEV}${PARTPRE:-}2" || \
         err_exit "PV creation failed. Aborting!"
    fi
 
    # Create root VolumeGroup
    err_exit "Creating LVM2 volume-group ${VGNAME}..." NONE
-   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE}2" || \
+   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE:-}2" || \
      err_exit "VG creation failed. Aborting!"
 
    # Create LVM2 volume-objects by iterating ${PARTITIONARRAY}
@@ -195,9 +195,9 @@ function CarveBare {
      err_exit "Failed laying down new partition-table"
 
    # Create FS on partitions
-   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE}2..." NONE
+   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}2..." NONE
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" \
-      "${CHROOTDEV}${PARTPRE}2" || \
+      "${CHROOTDEV}${PARTPRE:-}2" || \
      err_exit "Failed creating filesystem"
 }
 
