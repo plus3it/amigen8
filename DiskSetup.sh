@@ -6,6 +6,7 @@ set -eu -o pipefail
 #################################################################
 PROGNAME=$(basename "$0")
 BOOTDEVSZ="${BOOTDEVSZ:-500m}"
+CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
 
@@ -327,7 +328,10 @@ then
 fi
 
 # See if our carve-target is an NVMe
-if [[ ${CHROOTDEV} =~ /dev/nvme ]]
+if [[ ${CHROOTDEV} == "UNDEF" ]]
+then
+   err_exit "Failed to specify partitioning-target. Aborting"
+elif [[ ${CHROOTDEV} =~ /dev/nvme ]]
 then
    PARTPRE="p"
 else
@@ -341,4 +345,9 @@ then
 elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
    CarveBare
+elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+then
+   err_exit "Failed to specifiy a partitioning-method. Aborting"
+else
+   err_exit "The `-r`/`--rootlabel` and `-v`/`--vgname` flag-options are mutually-exclusive. Exiting." 0
 fi
