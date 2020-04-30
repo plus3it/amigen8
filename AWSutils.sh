@@ -198,15 +198,16 @@ function InstallInstanceConnect {
    then
       err_exit "Installing InstanceConnect from Git" NONE
 
-      # Fetch via git
-      git clone "${ICONNECTSRC}" "${BUILD_DIR}" || \
-        err_exit "Failed fetching ${ICONNECTSRC}"
-
       # Build the RPM
       if [[ $( command -v make )$? -ne 0 ]]
       then
          err_exit "No make-utility found in PATH"
       fi
+
+      # Fetch via git
+      err_exit "Fetching ${ICONNECTSRC}..." NONE
+      git clone "${ICONNECTSRC}" "${BUILD_DIR}" || \
+        err_exit "Failed fetching ${ICONNECTSRC}"
 
       err_exit "Making InstanceConnect RPM..." NONE
       ( cd "${BUILD_DIR}" && make rpm ) || \
