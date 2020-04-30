@@ -349,5 +349,5 @@ elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
    err_exit "Failed to specifiy a partitioning-method. Aborting"
 else
-   err_exit "The `-r`/`--rootlabel` and `-v`/`--vgname` flag-options are mutually-exclusive. Exiting." 0
+   err_exit "The '-r'/'--rootlabel' and '-v'/'--vgname' flag-options are mutually-exclusive. Exiting." 0
 fi
