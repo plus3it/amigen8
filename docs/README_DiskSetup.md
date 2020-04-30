@@ -28,7 +28,7 @@ Usage: ./DiskSetup.sh [GNU long option] [option] ...
 
 Each of the functionality flag-options may also be specified by using environment variables:
 
-- `BOOTDEVSZ`: Stands in for the `-B`/`--boot-size` flag-option
+- `BOOTDEVSZ`: Stands in for the `-B`/`--boot-size` flag-option. Failure to specify a unit (e.g., `m`/`MB` - see manpage for `parted command`) will cause the number to be interpreted as a sector (512Byte).
 - `CHROOTDEV`: Stands in for the `-d`/`--disk` flag-option
 - `FSTYPE`: Stands in for the `-f`/`--fstype` flag-option
 - `GEOMETRYSTRING`: Stands in for the `-p`/`--partition-string` flag-option
