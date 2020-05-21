@@ -189,6 +189,7 @@ function InstallInstanceConnect {
    if [[ ${ICONNECTSRC} == "UNDEF" ]]
    then
       err_exit "AWS Instance-Connect not requested for install. Skipping..." NONE
+      return 0
    elif [[ ${ICONNECTSRC} == *.rpm ]]
    then
       err_exit "Installing v${ICONNECTSRC} via yum..." NONE
