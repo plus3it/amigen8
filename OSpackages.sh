@@ -125,7 +125,7 @@ function GetDefaultRepos {
    fi
 
    case $( rpm -qf /etc/os-release --qf '%{name}' ) in
-      centos-linux-release | centos-stream-release)
+      centos-linux-release | centos-stream-release | centos-release )
          BASEREPOS=(
             baseos
             appstream
