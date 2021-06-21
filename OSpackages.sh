@@ -318,7 +318,7 @@ function FetchCustomRepos {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o a:Fg:hm:r: \
+   -o a:Fg:hm:r:M: \
    --long help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
