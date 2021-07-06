@@ -99,7 +99,8 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-a' 'List of repository-names to activate'
       printf '\t%-6s%s' '' 'Default activation: '
       GetDefaultRepos
-      printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
+      printf '\t%-4s%s\n' '-e' 'Extra RPMs to install '
+      printf '\t%-4s%s\n' '-g' 'RPM-group to install (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
@@ -291,6 +292,18 @@ function MainInstall {
         err_exit "Failed finding ${RPM}"
    done
 
+   # Install additionally-requested RPMs
+   if [[ ! -z ${EXTRARPMS+xxx} ]]
+   then
+      printf "##########\n## Installing requested RPMs/groups\n##########\n"
+      for RPM in "${EXTRARPMS[@]}"
+      do
+         { STDERR=$(${YUMDO} "$RPM" 2>&1 1>&$out); } {out}>&1 || echo "$STDERR" | grep "Error: Nothing to do"
+      done
+   
+   else
+      echo "No 'extra' RPMs requested"
+   fi
 }
 
 # Get custom repo-RPMs
@@ -318,8 +331,8 @@ function FetchCustomRepos {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o a:Fg:hm:r:M: \
-   --long help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   -o a:eg:hm:r:M: \
+   --long help,mountpoint:,extras:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -339,6 +352,19 @@ do
                   ;;
                *)
                   OSREPOS=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -e|--extras)
+            case "$2" in
+               "")
+                  echo "Error: option required but not specified" > /dev/stderr
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  EXTRARPMS=($(echo "${2}" | sed 's/,/ /g'))
                   shift 2;
                   ;;
             esac
