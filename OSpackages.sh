@@ -293,7 +293,7 @@ function MainInstall {
    done
 
    # Install additionally-requested RPMs
-   if [[ ! -z ${EXTRARPMS+xxx} ]]
+   if [[ -n ${EXTRARPMS+xxx} ]]
    then
       printf "##########\n## Installing requested RPMs/groups\n##########\n"
       for RPM in "${EXTRARPMS[@]}"
@@ -364,7 +364,7 @@ do
                   exit 1
                   ;;
                *)
-                  EXTRARPMS=($(echo "${2}" | sed 's/,/ /g'))
+                  EXTRARPMS=(read -a $(echo "${2}" | sed 's/,/ /g'))
                   shift 2;
                   ;;
             esac
