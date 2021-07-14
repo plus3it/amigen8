@@ -165,7 +165,7 @@ function InstallCLIv2 {
         err_exit "Failed dearchiving awscli-exe.zip"
 
       err_exit "Installing AWS CLIv2..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "/tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "python3 /tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
          err_exit "Failed installing AWS CLIv2"
 
       err_exit "Creating AWS CLIv2 symlink ${BINDIR}/aws2..." NONE
