@@ -106,6 +106,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
+      printf '\t%-20s%s\n' '--extras' 'See "-e" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
@@ -293,7 +294,7 @@ function MainInstall {
    done
 
    # Install additionally-requested RPMs
-   if [[ -n ${EXTRARPMS+xxx} ]]
+   if [[ -n ${EXTRARPMS[*]} ]]
    then
       printf "##########\n## Installing requested RPMs/groups\n##########\n"
       for RPM in "${EXTRARPMS[@]}"
