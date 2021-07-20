@@ -8,6 +8,7 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
+GRUBTMOUT="${GRUBTMOUT:-5}"
 MAINTUSR="${MAINTUSR:-"maintuser"}"
 NOTMPFS="${NOTMPFS:-UNDEF}"
 TARGTZ="${TARGTZ:-UTC}"
@@ -298,7 +299,7 @@ function GrubSetup {
    # Write default/grub contents
    err_exit "Writing default/grub file..." NONE
    (
-      printf 'GRUB_TIMEOUT=0\n'
+      printf 'GRUB_TIMEOUT=%s\n' "${GRUBTMOUT}"
       printf 'GRUB_DISTRIBUTOR="CentOS Linux"\n'
       printf 'GRUB_DEFAULT=saved\n'
       printf 'GRUB_DISABLE_SUBMENU=true\n'
@@ -398,8 +399,8 @@ function SetupTmpfs {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o Ff:hm:z: \
-   --long fstype:,help,mountpoint:,no-fips,no-tmpfs,timezone \
+   -o Ff:hm:t:z: \
+   --long fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -431,6 +432,19 @@ do
                   ;;
             esac
             ;;
+      -g|--grub-timeout)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  GRUBTMOUT="${2}"
+                  shift 2;
+                  ;;
+            esac
+            ;;
       --no-tmpfs)
             NOTMPFS="true"
             ;;
@@ -445,7 +459,7 @@ do
                   exit 1
                   ;;
                *)
-                  CHROOTMNT=${2}
+                  CHROOTMNT="${2}"
                   shift 2;
                   ;;
             esac
@@ -458,7 +472,7 @@ do
                   exit 1
                   ;;
                *)
-                  TARGTZ=${2}
+                  TARGTZ="${2}"
                   shift 2;
                   ;;
             esac

@@ -82,12 +82,6 @@ function EnsurePy3 {
       err_exit "Installing python3..." NONE
       yum --installroot="${CHROOTMNT}" install --quiet -y python3 || \
         err_exit "Failed installing python3"
-
-      err_exit "Creating /bin/python link..." NONE
-      chroot "${CHROOTMNT}" bash -c "(
-            alternatives --set python /usr/bin/python3
-         )" || \
-        err_exit "Failed creating /bin/python link"
    fi
 }
 
@@ -165,7 +159,7 @@ function InstallCLIv2 {
         err_exit "Failed dearchiving awscli-exe.zip"
 
       err_exit "Installing AWS CLIv2..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "/tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "python3 /tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
          err_exit "Failed installing AWS CLIv2"
 
       err_exit "Creating AWS CLIv2 symlink ${BINDIR}/aws2..." NONE
