@@ -113,7 +113,7 @@ function InstallCLIv1 {
         err_exit "Failed dearchiving awscli-bundle.zip"
 
       err_exit "Installing AWS CLIv1..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "/tmp/awscli-bundle/install -i '${INSTALLDIR}' -b '${BINDIR}/aws'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "python3 /tmp/awscli-bundle/install -i '${INSTALLDIR}' -b '${BINDIR}/aws'" || \
          err_exit "Failed installing AWS CLIv1"
 
       err_exit "Creating AWS CLIv1 symlink ${BINDIR}/aws1..." NONE
@@ -159,7 +159,7 @@ function InstallCLIv2 {
         err_exit "Failed dearchiving awscli-exe.zip"
 
       err_exit "Installing AWS CLIv2..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "python3 /tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "/tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
          err_exit "Failed installing AWS CLIv2"
 
       err_exit "Creating AWS CLIv2 symlink ${BINDIR}/aws2..." NONE
