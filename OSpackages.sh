@@ -294,7 +294,7 @@ function MainInstall {
    done
 
    # Install additionally-requested RPMs
-   if [[ -n ${EXTRARPMS[*]} ]]
+   if [[ -n ${EXTRARPMS+xxx} ]]
    then
       printf "##########\n## Installing requested RPMs/groups\n##########\n"
       for RPM in "${EXTRARPMS[@]}"
