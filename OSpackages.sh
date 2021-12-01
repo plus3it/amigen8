@@ -52,6 +52,7 @@ EXCLUDEPKGS=(
       libertas-sd8686-firmware
       libertas-sd8787-firmware
       libertas-usb8388-firmware
+      rhc
    )
 RPMFILE=${RPMFILE:-UNDEF}
 RPMGRP=${RPMGRP:-core}
