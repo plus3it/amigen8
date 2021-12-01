@@ -250,12 +250,11 @@ function GrubSetup {
       err_exit "Bare partitioning not yet supported"
    else
       ROOTTOK="root=${VGCHECK}"
+      VGCHECK="${VGCHECK%-*}"
 
       # Compute PV from VG info
       CHROOTDEV="$(
-            vgs --no-headings -o pv_name "$( 
-               sed "s#/dev/mapper/##" <<< "${VGCHECK%-*}"
-            )" | \
+            vgs --no-headings -o pv_name "${VGCHECK//\/dev\/mapper\//}" | \
             sed 's/[ 	][ 	]*//g'
          )"
 
