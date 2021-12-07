@@ -59,6 +59,9 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-i' 'Where to get AWS InstanceConnect (RPM or git URL)'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
+      printf '\t%-4s%s\n' '-p' 'Comma-separated list of packages to install from a yum repo'
+      printf '\t%-4s%s\n' '-r' 'Comma-separated list of release packages that provide yum repo definitions'
+      printf '\t%-4s%s\n' '-R' 'Comma-separated list of yum repos to enable'
       printf '\t%-4s%s\n' '-s' 'Where to get AWS SSM Agent (Installs via RPM)'
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--cli-v1' 'See "-C" short-option'
@@ -295,6 +298,38 @@ function InstallSSMagent {
    fi
 }
 
+# Install AWS utils from yum repos
+function InstallFromRepo {
+   # Install provided release packages, which provide the yum repo definition files
+   if [[ -z "${REPORELEASES:-}" ]]
+   then
+      err_exit "No repo release packages provided. Skipping..." NONE
+   else
+      err_exit "Installing repo release packages, ${REPORELEASES[*]}" NONE
+      yum --installroot="${CHROOTMNT}" install -y --setopt=skip_missing_names_on_install=False "${REPORELEASES[@]}" || \
+        err_exit "Failed installing repo release packages"
+   fi
+
+   # Enable specified yum repos
+   if [[ -z "${REPONAMES:-}" ]]
+   then
+      err_exit "No repo names provided. Skipping..." NONE
+   else
+      err_exit "Enabling repos, ${REPONAMES}" NONE
+      yum-config-manager --installroot="${CHROOTMNT}" --enable "${REPONAMES}" || \
+        err_exit "Failed enabling yum repos"
+   fi
+
+   # Install the specified packages
+   if [[ -z "${REPOPACKAGES:-}" ]]
+   then
+      err_exit "No repo packages provided. Skipping..." NONE
+   else
+      err_exit "Installing packages, ${REPOPACKAGES[*]}" NONE
+      yum --installroot="${CHROOTMNT}" install -y --setopt=skip_missing_names_on_install=False "${REPOPACKAGES[@]}" || \
+        err_exit "Failed installing repo pacakges"
+   fi
+}
 
 ######################
 ## Main program-flow
@@ -380,6 +415,45 @@ do
                   ;;
             esac
             ;;
+      -p|--repo-packages)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  mapfile -t REPOPACKAGES < <(echo "${2//,/ }")
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -r|--repo-release-packages)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  mapfile -t REPORELEASES < <(echo "${2//,/ }")
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -R|--repo-release-names)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  REPONAMES="${2}"
+                  shift 2;
+                  ;;
+            esac
+            ;;
       -s|--ssm-agent)
             case "$2" in
                "")
@@ -421,3 +495,6 @@ InstallInstanceConnect
 
 # Install AWS utils from directory
 InstallFromDir
+
+# Install AWS utils from yum repo
+InstallFromRepo
