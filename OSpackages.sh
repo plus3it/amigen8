@@ -281,12 +281,11 @@ function MainInstall {
    done
 
    # Install packages
-   YUMCMD+="$( IFS=' ' ; echo "${MINXTRAPKGS[*]}" ) " \
-   YUMCMD+="@${RPMGRP}"
+   YUMCMD+="$( IFS=' ' ; echo "${INCLUDEPKGS[*]}" )"
    ${YUMCMD} -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
-   err_exit "Verifying insstalled RPMs" NONE
+   err_exit "Verifying installed RPMs" NONE
    for RPM in ${INCLUDEPKGS[*]}
    do
       err_exit "Checking presence of ${RPM}..." NONE
