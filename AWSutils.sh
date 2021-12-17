@@ -60,14 +60,16 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-i' 'Where to get AWS InstanceConnect (RPM or git URL)'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-s' 'Where to get AWS SSM Agent (Installs via RPM)'
+      printf '\t%-4s%s\n' '-t' 'Systemd services to enable with systemctl'
       echo "  GNU long options:"
       printf '\t%-20s%s\n' '--cli-v1' 'See "-C" short-option'
       printf '\t%-20s%s\n' '--cli-v2' 'See "-c" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--instance-connect' 'See "-i" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
-      printf '\t%-20s%s\n' '--utils-dir' 'See "-d" short-option'
       printf '\t%-20s%s\n' '--ssm-agent' 'See "-s" short-option'
+      printf '\t%-20s%s\n' '--systemd-services' 'See "-t" short-option'
+      printf '\t%-20s%s\n' '--utils-dir' 'See "-d" short-option'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -89,9 +91,11 @@ function EnsurePy3 {
 function InstallCLIv1 {
    local INSTALLDIR
    local BINDIR
+   local TMPDIR
 
    INSTALLDIR="/usr/local/aws-cli/v1"
    BINDIR="/usr/local/bin"
+   TMPDIR=$(chroot "${CHROOTMNT}" /bin/bash -c "mktemp -d")
 
    if [[ ${CLIV1SOURCE} == "UNDEF" ]]
    then
@@ -102,18 +106,18 @@ function InstallCLIv1 {
       EnsurePy3
 
       err_exit "Fetching ${CLIV1SOURCE}..." NONE
-      curl -sL "${CLIV1SOURCE}" -o "${CHROOTMNT}/tmp/awscli-bundle.zip" || \
+      curl -sL "${CLIV1SOURCE}" -o "${CHROOTMNT}${TMPDIR}/awscli-bundle.zip" || \
         err_exit "Failed fetching ${CLIV1SOURCE}"
 
       err_exit "Dearchiving awscli-bundle.zip..." NONE
       (
-         cd "${CHROOTMNT}/tmp"
+         cd "${CHROOTMNT}${TMPDIR}"
          unzip -q awscli-bundle.zip
       ) || \
         err_exit "Failed dearchiving awscli-bundle.zip"
 
       err_exit "Installing AWS CLIv1..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "python3 /tmp/awscli-bundle/install -i '${INSTALLDIR}' -b '${BINDIR}/aws'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "python3 ${TMPDIR}/awscli-bundle/install -i '${INSTALLDIR}' -b '${BINDIR}/aws'" || \
          err_exit "Failed installing AWS CLIv1"
 
       err_exit "Creating AWS CLIv1 symlink ${BINDIR}/aws1..." NONE
@@ -121,8 +125,7 @@ function InstallCLIv1 {
         err_exit "Failed creating ${BINDIR}/aws1"
 
       err_exit "Cleaning up install files..." NONE
-      rm -rf "${CHROOTMNT}/tmp/awscli-bundle.zip" \
-         "${CHROOTMNT}/tmp/awscli-bundle" || \
+      rm -rf "${CHROOTMNT}${TMPDIR}" || \
         err_exit "Failed cleaning up install files"
    elif [[ ${CLIV1SOURCE} == pip,* ]]
    then
@@ -131,16 +134,17 @@ function InstallCLIv1 {
 
       chroot "${CHROOTMNT}" /usr/bin/pip3 install --upgrade "${CLIV1SOURCE/pip*,}"
    fi
-
 }
 
 # Install AWS CLI version 2.x
 function InstallCLIv2 {
    local INSTALLDIR
    local BINDIR
+   local TMPDIR
 
    INSTALLDIR="/usr/local/aws-cli"  # installer appends v2/current
    BINDIR="/usr/local/bin"
+   TMPDIR=$(chroot "${CHROOTMNT}" /bin/bash -c "mktemp -d")
 
    if [[ ${CLIV2SOURCE} == "UNDEF" ]]
    then
@@ -148,18 +152,18 @@ function InstallCLIv2 {
    elif [[ ${CLIV2SOURCE} == http[s]://*zip ]]
    then
       err_exit "Fetching ${CLIV2SOURCE}..." NONE
-      curl -sL "${CLIV2SOURCE}" -o "${CHROOTMNT}/tmp/awscli-exe.zip" || \
+      curl -sL "${CLIV2SOURCE}" -o "${CHROOTMNT}${TMPDIR}/awscli-exe.zip" || \
         err_exit "Failed fetching ${CLIV2SOURCE}"
 
       err_exit "Dearchiving awscli-exe.zip..." NONE
       (
-         cd "${CHROOTMNT}/tmp"
+         cd "${CHROOTMNT}${TMPDIR}"
          unzip -q awscli-exe.zip
       ) || \
         err_exit "Failed dearchiving awscli-exe.zip"
 
       err_exit "Installing AWS CLIv2..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "/tmp/aws/install -i '${INSTALLDIR}' -b '${BINDIR}'" || \
+      chroot "${CHROOTMNT}" /bin/bash -c "${TMPDIR}/aws/install --update -i '${INSTALLDIR}' -b '${BINDIR}'" || \
          err_exit "Failed installing AWS CLIv2"
 
       err_exit "Creating AWS CLIv2 symlink ${BINDIR}/aws2..." NONE
@@ -167,11 +171,9 @@ function InstallCLIv2 {
         err_exit "Failed creating ${BINDIR}/aws2"
 
       err_exit "Cleaning up install files..." NONE
-      rm -rf "${CHROOTMNT}/tmp/awscli-exe.zip" \
-         "${CHROOTMNT}/tmp/aws" || \
+      rm -rf "${CHROOTMNT}${TMPDIR}" || \
         err_exit "Failed cleaning up install files"
    fi
-
 }
 
 # Install AWS utils from "directory"
@@ -295,13 +297,30 @@ function InstallSSMagent {
    fi
 }
 
+# Force systemd services to be enabled in resultant AMI
+function EnableServices()
+{
+   if [[ -z "${SYSTEMDSVCS:-}" ]]
+   then
+      err_exit "Systemd services not requested for enablement. Skipping..." NONE
+      return
+   fi
+
+   for SVC in "${SYSTEMDSVCS[@]}"
+   do
+      printf "Attempting to enable %s in %s... " "${SVC}.service" "${CHROOTMNT}"
+      chroot "${CHROOTMNT}" /usr/bin/systemctl enable "${SVC}.service" || err_exit "FAILED"
+      echo "SUCCESS"
+   done
+}
+
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o C:c:d:hi:m:s:\
-   --long cli-v1:,cli-v2:,help,instance-connect:,mountpoint:,ssm-agent:,utils-dir: \
+   -o C:c:d:hi:m:s:t:\
+   --long cli-v1:,cli-v2:,help,instance-connect:,mountpoint:,ssm-agent:,systemd-services:,utils-dir: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -393,6 +412,19 @@ do
                   ;;
             esac
             ;;
+      -t|--systemd-services)
+            case "$2" in
+               "")
+                  echo "Error: option required but not specified" > /dev/stderr
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  IFS=, read -ra SYSTEMDSVCS <<< "$2"
+                  shift 2;
+                  ;;
+            esac
+            ;;
       --)
          shift
          break
@@ -421,3 +453,6 @@ InstallInstanceConnect
 
 # Install AWS utils from directory
 InstallFromDir
+
+# Enable services
+EnableServices
