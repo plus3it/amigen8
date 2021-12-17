@@ -426,7 +426,6 @@ do
             ;;
       -X|--cross-distro)
             ISCROSSDISTRO=TRUE
-            esac
             ;;
       -x|--exclude-rpms)
             case "$2" in
