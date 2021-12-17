@@ -247,7 +247,22 @@ function GrubSetup {
    # Determine our "root=" token
    if [[ ${VGCHECK:-} == '' ]]
    then
-      err_exit "Bare partitioning not yet supported"
+      CHROOTDEV="$( findmnt -cnM "${CHROOTMNT}" -o SOURCE )"
+      CHROOTFSTYP="$( findmnt -cnM "${CHROOTMNT}" -o FSTYPE )"
+
+      if [[ ${CHROOTFSTYP} == "xfs" ]]
+      then
+         ROOTTOK="root=LABEL=$(
+            xfs_admin -l "${CHROOTDEV}" | sed -e 's/"$//' -e 's/^.* = "//'
+         )"
+      elif [[ ${CHROOTFSTYP} == ext[2-4] ]]
+      then
+         ROOTTOK="root=LABEL=$(
+            e2label "${CHROOTDEV}"
+         )"
+      else
+         err_exit "Could not determine chroot-dev's filesystem-label"
+      fi
    else
       ROOTTOK="root=${VGCHECK}"
       VGCHECK="${VGCHECK%-*}"
