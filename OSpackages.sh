@@ -100,6 +100,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-a' 'List of repository-names to activate'
       printf '\t%-6s%s' '' 'Default activation: '
       GetDefaultRepos
+      printf '\t%-4s%s\n' '-e' 'Extra RPMs to install from enabled repos'
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
@@ -107,6 +108,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-4s%s\n' '-X' 'Declare to be a cross-distro build'
       printf '\t%-20s%s\n' '--cross-distro' 'See "-X" short-option'
+      printf '\t%-20s%s\n' '--extra-rpms' 'See "-e" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
@@ -204,7 +206,7 @@ function PrepChroot {
    fi
 
    # Stage our base RPMs
-   yumdownloader --destdir=/tmp "${BASEPKGS[@]}"
+   yumdownloader -y --destdir=/tmp "${BASEPKGS[@]}"
    if [[ ${REPORPMS:-} != '' ]]
    then
       FetchCustomRepos
@@ -279,7 +281,7 @@ function MainInstall {
    fi
 
    # Add extra packages to include-list (array)
-   INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" )
+   INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" "${EXTRARPMS[@]}" )
 
    # Remove excluded packages from include-list
    for EXCLUDE in ${EXCLUDEPKGS[*]}
@@ -288,12 +290,11 @@ function MainInstall {
    done
 
    # Install packages
-   YUMCMD+="$( IFS=' ' ; echo "${MINXTRAPKGS[*]}" ) " \
-   YUMCMD+="@${RPMGRP}"
+   YUMCMD+="$( IFS=' ' ; echo "${INCLUDEPKGS[*]}" )"
    ${YUMCMD} -x "$( IFS=',' ; echo "${EXCLUDEPKGS[*]}" )"
 
    # Verify installation
-   err_exit "Verifying insstalled RPMs" NONE
+   err_exit "Verifying installed RPMs" NONE
    for RPM in ${INCLUDEPKGS[*]}
    do
       err_exit "Checking presence of ${RPM}..." NONE
@@ -328,8 +329,8 @@ function FetchCustomRepos {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o a:Fg:hm:r:M:X \
-   --long cross-distro,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   -o a:e:Fg:hm:r:M:X \
+   --long cross-distro,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -349,6 +350,19 @@ do
                   ;;
                *)
                   OSREPOS=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -e|--extra-rpms)
+            case "$2" in
+               "")
+                  echo "Error: option required but not specified" > /dev/stderr
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  IFS=, read -ra EXTRARPMS <<< "$2"
                   shift 2;
                   ;;
             esac
