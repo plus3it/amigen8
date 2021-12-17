@@ -106,13 +106,15 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
+      printf '\t%-4s%s\n' '-x' 'List of RPMs to exclude from build-list'
+      printf '\t%-20s%s\n' '--exclude-rpms' 'See "-x" short-option'
       printf '\t%-20s%s\n' '--extra-rpms' 'See "-e" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
       printf '\t%-20s%s\n' '--pkg-manifest' 'See "-M" short-option'
-      printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
       printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
       printf '\t%-20s%s\n' '--repo-rpms' 'See "-r" short-option'
+      printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -275,7 +277,7 @@ function MainInstall {
    INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" "${EXTRARPMS[@]}" )
 
    # Remove excluded packages from include-list
-   for EXCLUDE in ${EXCLUDEPKGS[*]}
+   for EXCLUDE in ${EXCLUDEPKGS[*]} ${EXTRAEXCLUDE[*]}
    do
        INCLUDEPKGS=( "${INCLUDEPKGS[@]//*${EXCLUDE}*}" )
    done
@@ -320,8 +322,8 @@ function FetchCustomRepos {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o a:e:Fg:hm:r:M: \
-   --long help,extra-rpms:,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   -o a:e:Fg:hM:m:r:x: \
+   --long help,exclude-rpms:,extra-rpms:,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -409,6 +411,19 @@ do
                   ;;
                *)
                   REPORPMS=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -x|--exclude-rpms)
+            case "$2" in
+               "")
+                  echo "Error: option required but not specified" > /dev/stderr
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  IFS=, read -ra EXTRAEXCLUDE <<< "$2"
                   shift 2;
                   ;;
             esac
