@@ -170,7 +170,7 @@ function PrepChroot {
    )
 
    # Don't try to be helpful if doing cross-distro (i.e., "bootstrapper-build")
-   if [[ -z ${ISCROSSDISTRO} ]]
+   if [[ -z ${ISCROSSDISTRO:-} ]]
    then
       mapfile -t -O "${#BASEPKGS[@]}" BASEPKGS < <(
          rpm --qf '%{name}\n' -qf /etc/os-release ; \
