@@ -57,8 +57,10 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-F' 'Disable FIPS support (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-h' 'Print this message'
       printf '\t%-4s%s\n' '-m' 'Where chroot-dev is mounted (default: "/mnt/ec2-root")'
+      printf '\t%-4s%s\n' '-X' 'Declare to be a cross-distro build'
       printf '\t%-4s%s\n' '-z' 'Initial timezone of build-target (default: "UTC")'
       echo "  GNU long options:"
+      printf '\t%-20s%s\n' '--cross-distro' 'See "-X" short-option'
       printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
       printf '\t%-20s%s\n' '--mountpoint' 'See "-m" short-option'
@@ -83,13 +85,38 @@ function CleanHistory {
 
 # Set up fstab
 function CreateFstab {
-   err_exit "Setting up /etc/fstab in chroot-dev..." NONE
-   grep "${CHROOTMNT}" /proc/mounts | \
-   grep -w "${FSTYPE}" | \
-   sed -e "s/${FSTYPE}.*/${FSTYPE}\tdefaults,rw\t0 0/" \
-       -e "s#${CHROOTMNT}\s#/\t#" \
-       -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
-     err_exit "Failed setting up /etc/fstab"
+   local CHROOTDEV
+   local CHROOTFSTYP
+   CHROOTDEV="$( findmnt -cnM "${CHROOTMNT}" -o SOURCE )"
+   CHROOTFSTYP="$( findmnt -cnM "${CHROOTMNT}" -o FSTYPE )"
+
+   # Need to calculate fstab based on build-type
+   if [[ -n ${ISCROSSDISTRO:-} ]]
+   then
+      err_exit "Setting up /etc/fstab for non-LVMed chroot-dev..." NONE
+      if [[ ${CHROOTFSTYP:-} == "xfs" ]]
+      then
+         ROOTLABEL=$(
+            xfs_admin -l "${CHROOTDEV}" | sed -e 's/"$//' -e 's/^.* = "//'
+         )
+      elif [[ ${CHROOTFSTYP:-} == ext[2-4] ]]
+      then
+         ROOTLABEL=$( e2label "${CHROOTDEV}" )
+      else
+         err_exit "Couldn't find fslabel for ${CHROOTMNT}"
+      fi
+      printf "LABEL=%s\t/\t%s\tdefaults\t 0 0\n" "${ROOTLABEL}" \
+        "${CHROOTFSTYP}" > "${CHROOTMNT}/etc/fstab" || \
+          err_exit "Failed setting up /etc/fstab"
+   else
+      err_exit "Setting up /etc/fstab for LVMed chroot-dev..." NONE
+      grep "${CHROOTMNT}" /proc/mounts | \
+         grep -w "${FSTYPE}" | \
+      sed -e "s/${FSTYPE}.*/${FSTYPE}\tdefaults,rw\t0 0/" \
+          -e "s#${CHROOTMNT}\s#/\t#" \
+          -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
+        err_exit "Failed setting up /etc/fstab"
+   fi
 
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -226,6 +253,22 @@ function FirewalldSetup {
    err_exit "Failed etting up baseline firewall rules"
 }
 
+# Get root dev
+function ClipPartition {
+   local CHROOTDEV
+   CHROOTDEV="${1}"
+
+   # Get base device-name
+   if [[ ${CHROOTDEV} =~ nvme ]]
+   then
+      CHROOTDEV="${CHROOTDEV%p*}"
+   else
+      CHROOTDEV="${CHROOTDEV%[0-9]}"
+   fi
+
+   echo "${CHROOTDEV}"
+}
+
 # Set up grub on chroot-dev
 function GrubSetup {
    local CHROOTDEV
@@ -263,6 +306,8 @@ function GrubSetup {
       else
          err_exit "Could not determine chroot-dev's filesystem-label"
       fi
+
+      CHROOTDEV="$( ClipPartition "${CHROOTDEV}" )"
    else
       ROOTTOK="root=${VGCHECK}"
       VGCHECK="${VGCHECK%-*}"
@@ -273,13 +318,7 @@ function GrubSetup {
             sed 's/[ 	][ 	]*//g'
          )"
 
-      # Get base device-name
-      if [[ ${CHROOTDEV} =~ nvme ]]
-      then
-         CHROOTDEV="${CHROOTDEV%p*}"
-      else
-         CHROOTDEV="${CHROOTDEV%[0-9]}"
-      fi
+      CHROOTDEV="$( ClipPartition "${CHROOTDEV}" )"
 
       # Make sure device is valid
       if [[ -b ${CHROOTDEV} ]]
@@ -413,8 +452,8 @@ function SetupTmpfs {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o Ff:hm:t:z: \
-   --long fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone \
+   -o Ff:hm:t:Xz: \
+   --long cross-distro,fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -477,6 +516,11 @@ do
                   shift 2;
                   ;;
             esac
+            ;;
+      -X|--cross-distro)
+            ISCROSSDISTRO=TRUE
+            shift
+            break
             ;;
       -z|--timezone)
             case "$2" in
