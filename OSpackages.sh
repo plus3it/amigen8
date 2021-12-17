@@ -106,7 +106,9 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
+      printf '\t%-4s%s\n' '-X' 'Declare to be a cross-distro build'
       printf '\t%-4s%s\n' '-x' 'List of RPMs to exclude from build-list'
+      printf '\t%-20s%s\n' '--cross-distro' 'See "-X" short-option'
       printf '\t%-20s%s\n' '--exclude-rpms' 'See "-x" short-option'
       printf '\t%-20s%s\n' '--extra-rpms' 'See "-e" short-option'
       printf '\t%-20s%s\n' '--help' 'See "-h" short-option'
@@ -165,11 +167,18 @@ function PrepChroot {
    local -a BASEPKGS
 
    # Create an array of packages to install
-   mapfile -t BASEPKGS < <(
-      rpm --qf '%{name}\n' -qf /etc/os-release ; \
-      rpm --qf '%{name}\n' -qf  /etc/yum.repos.d/* 2>&1 | grep -v "not owned" | sort -u ; \
-      echo yum-utils
+   BASEPKGS=(
+      yum-utils
    )
+
+   # Don't try to be helpful if doing cross-distro (i.e., "bootstrapper-build")
+   if [[ -z ${ISCROSSDISTRO:-} ]]
+   then
+      mapfile -t -O "${#BASEPKGS[@]}" BASEPKGS < <(
+         rpm --qf '%{name}\n' -qf /etc/os-release ; \
+         rpm --qf '%{name}\n' -qf  /etc/yum.repos.d/* 2>&1 | grep -v "not owned" | sort -u ; \
+      )
+   fi
 
    # Ensure DNS lookups work in chroot-dev
    if [[ ! -e ${CHROOTMNT}/etc/resolv.conf ]]
@@ -322,8 +331,8 @@ function FetchCustomRepos {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o a:e:Fg:hM:m:r:x: \
-   --long help,exclude-rpms:,extra-rpms:,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   -o a:e:Fg:hM:m:r:Xx: \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -414,6 +423,9 @@ do
                   shift 2;
                   ;;
             esac
+            ;;
+      -X|--cross-distro)
+            ISCROSSDISTRO=TRUE
             ;;
       -x|--exclude-rpms)
             case "$2" in
