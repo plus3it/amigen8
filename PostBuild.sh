@@ -307,7 +307,7 @@ function GrubSetup {
          err_exit "Could not determine chroot-dev's filesystem-label"
       fi
 
-      ClipPartition "${CHROOTDEV}"
+      CHROOTDEV="$( ClipPartition "${CHROOTDEV}" )"
    else
       ROOTTOK="root=${VGCHECK}"
       VGCHECK="${VGCHECK%-*}"
@@ -318,7 +318,7 @@ function GrubSetup {
             sed 's/[ 	][ 	]*//g'
          )"
 
-      ClipPartition "${CHROOTDEV}"
+      CHROOTDEV="$( ClipPartition "${CHROOTDEV}" )"
 
       # Make sure device is valid
       if [[ -b ${CHROOTDEV} ]]
