@@ -360,8 +360,8 @@ function InstallCfnBootstrap {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-   -o C:c:d:hi:m:s:t:\
-   --long cli-v1:,cli-v2:,help,instance-connect:,mountpoint:,ssm-agent:,systemd-services:,utils-dir: \
+   -o C:c:d:hi:m:n:s:t:\
+   --long cli-v1:,cli-v2:,cfn-bootstrap:,help,instance-connect:,mountpoint:,ssm-agent:,systemd-services:,utils-dir: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
