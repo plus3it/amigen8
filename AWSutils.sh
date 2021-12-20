@@ -326,8 +326,13 @@ function InstallCfnBootstrap {
       local TMPDIR
       TMPDIR=$(chroot "${CHROOTMNT}" mktemp -d)
 
+      err_exit "Installing rpm dependencies for AWS CFN Bootstrap install..." NONE
+      yum --installroot="${CHROOTMNT}" install -y tar || \
+         err_exit "Failed installing rpm dependencies"
+
       err_exit "Fetching ${CFNBOOTSTRAP}..." NONE
-      curl -sL "${CFNBOOTSTRAP}" -o "${CHROOTMNT}${TMPDIR}/aws-cfn-bootstrap.tar.gz"
+      curl -sL "${CFNBOOTSTRAP}" -o "${CHROOTMNT}${TMPDIR}/aws-cfn-bootstrap.tar.gz" || \
+         err_exit "Failed fetching ${CFNBOOTSTRAP}"
 
       err_exit "Installing AWS CFN Bootstrap..." NONE
       chroot "${CHROOTMNT}" python3 -m pip install "${TMPDIR}/aws-cfn-bootstrap.tar.gz" || \
