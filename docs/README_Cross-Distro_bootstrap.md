@@ -215,3 +215,5 @@ From an official Red Hat 8 AMI from the AWS MarketPlace, it is still a good idea
     # rpm -qa amazon-ssm-agent
     amazon-ssm-agent-3.1.715.0-1.x86_64
     ~~~
+1. If sharing the image, either set the image public (to be a good community-citizen) or share to the list of accounts that need to have access
+1. If the bootstrap-images need to be multi-region (mostly if trying to be a good community-citizen), ensure to copy the verified-AMI from the region it was created in to any other region it should exist within.
