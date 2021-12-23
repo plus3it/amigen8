@@ -58,7 +58,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
         * Exclude (with `-x`) all RPMs related to RHUI-enablement
         * Use a manifest-file rather than the groups-metadata that come from the RHUI repos
         * Staging the RPMs referenced with the `-r` flag is optional: if your build-host is able to pull those files from an anonymous repo, then the `-r` can be pointed to the relevant URLs. See per-platform notes below.
-1. Install the AWS utilities by executing:
+1. (Optional) Install the AWS utilities by executing:
     ~~~
     ./AWSutils.sh -d ~/RPM/Amazon/ \
       -C <URL_OF_AWSCLIv1_BUNDLE> \
