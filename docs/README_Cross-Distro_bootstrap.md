@@ -125,14 +125,14 @@ Once the above, `chroot()`-style build to the secondary volume has successfully 
 
 ## Validate Image
 
-While the above processes have been shown to reliably work for:
+The above processes have been shown to reliably work for:
 
 * Creating a CentOS 8 Core (now deprecated)
 * Creating a CentOS 8 Stream
 * Creating an Alma Linux 8
 * Creating a Rocky Linux 8
 
-From an official Red Hat 8 AMI from the AWS MarketPlace, it is still a good idea to validate your results before trying to use your bootstrap AMI for AMI-building or other purposes. To do so:
+When starting from an official Red Hat 8 AMI from the AWS MarketPlace (i.e., one maintained via CSP/Red Hat partnership). While this project has generically validated these scenarios, it is still a good idea to validate your results before trying to use your bootstrap AMI for AMI-building or other purposes. To do so:
 
 1. Using the AWS CLI or web-console, launch an EC2 from your new bootstrapper AMI:
     * Ensure you launch it with an accessible SSH key
