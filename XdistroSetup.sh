@@ -68,7 +68,7 @@ function UsageMsg {
 function InstallGpgKeys {
    local ITEM
 
-   for ITEM in "${PKGSIGNKEYS[*]}"
+   for ITEM in "${PKGSIGNKEYS[@]}"
    do
       if [[ ${ITEM} == "" ]]
       then
