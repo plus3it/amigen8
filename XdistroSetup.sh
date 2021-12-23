@@ -71,7 +71,7 @@ function InstallGpgKeys {
 
    while [[ LOOP -lt ${#PKGSIGNKEYS[*]} ]]
    do
-      if [[ ${PKGSIGNKEYS[${LOOP}]} == "" ]] 
+      if [[ ${PKGSIGNKEYS[${LOOP}]} == "" ]]
       then
          break
       elif [[ ${PKGSIGNKEYS[${LOOP}]} == *.rpm ]]
@@ -201,5 +201,5 @@ then
    UsageMsg 1
 fi
 
-InstallGpgKeys 
+InstallGpgKeys
 StageDistroRpms
