@@ -101,7 +101,7 @@ function StageDistroRpms {
    (
      cd "${HOME}/RPM/${DISTRONAME}"
 
-     for ITEM in "${REPORPMS[*]}"
+     for ITEM in "${REPORPMS[@]}"
      do
         printf "fetching %s to %s... " "${ITEM}" \
           "${HOME}/RPM/${DISTRONAME}"
