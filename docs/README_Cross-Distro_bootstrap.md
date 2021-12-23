@@ -14,6 +14,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
 1. Change to the `root` user (e.g., `sudo -i`)
 1. Generate an RPM manifest suitable for your distro-clone (the ones marked `Mandatory` and `Default` from CentOS8 stream should be sufficient)
 1. Clone the AMIgen8 project (this project) to the `root` user's `${HOME}`
+1. Navigate into the AMIgen8 project-root (e.g., `cd AMIgen8`)
 1. Use the `XdistroSetup.sh` script to stage the necessary alternate-disto GPG and repository files to the build-environment:
     ~~~
     ./XdistroSetup.sh -d <DISTRO_NAME> \
@@ -26,7 +27,6 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
       -k https://download.rockylinux.org/pub/rocky/RPM-GPG-KEY-rockyofficial \
       -r https://download.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/Packages/r/rocky-release-8.5-2.el8.noarch.rpm,https://download.rockylinux.org/pub/rocky/8/BaseOS/x86_64/os/Packages/r/rocky-repos-8.5-2.el8.noarch.rpm
     ~~~
-1. Navigate into the AMIgen8 project-root (e.g., `cd AMIgen8`)
 1. (Optional) Clean up target-disk by executing:
     ~~~
     ./Umount.sh -C <TARGET_DEV>
