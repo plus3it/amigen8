@@ -51,7 +51,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
     ./OSpackages.sh -a baseos,appstream,extras \
       -m /mnt/ec2-root -X \
       -r /root/RPM/RockyLinux/rocky-repos-8.5-2.el8.noarch.rpm,/root/RPM/RockyLinux/rocky-release-8.5-2.el8.noarch.rpm \
-      -x x subscription-manager,redhat-rpm-config,rhn-check,rhn-client-tools,rhn-setup,rhnlib,rhnsd \
+      -x subscription-manager,redhat-rpm-config,rhn-check,rhn-client-tools,rhn-setup,rhnlib,rhnsd \
       -M <PATH_TO_MANIFEST_FILE>
     ~~~
     Note: Due to environment-inheritance when using a RHUI-enabled AMI, it's necessary to:
