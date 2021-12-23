@@ -13,6 +13,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
 1. Login to the EC2
 1. Change to the `root` user (e.g., `sudo -i`)
 1. Clone the AMIgen8 project (this project) to the `root` user's `${HOME}`
+1. Generate an RPM manifest suitable for your distro-clone (the ones marked `Mandatory` and `Default` from CentOS8 stream should be sufficient)
 1. Use the `XdistroSetup.sh` script to stage the necessary alternate-disto GPG and repository files to the build-environment:
     ~~~
     ./XdistroSetup.sh -d <DISTRO_NAME> \
@@ -42,15 +43,20 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
 1. Install the OS packages by executing:
     ~~~
     ./OSpackages.sh -a <LIST_OF_CHANNEL_NAMES> \
-      -m /mnt/ec2-root -r /root/RPM/<DISTRO_NAME>/<DISTRO_RELEASE_RPM> -X 
+      -m /mnt/ec2-root -r /root/RPM/<DISTRO_NAME>/<DISTRO_RELEASE_RPM> \
+      -X -M <MANIFEST_FILE>
     ~~~
     For Rocky Linux 8, this would look something like:
     ~~~
     ./OSpackages.sh -a baseos,appstream,extras \
-      -m /mnt/ec2-root \
+      -m /mnt/ec2-root -X \
       -r /root/RPM/RockyLinux/rocky-repos-8.5-2.el8.noarch.rpm,/root/RPM/RockyLinux/rocky-release-8.5-2.el8.noarch.rpm \
-      -X 
+      -x x subscription-manager,redhat-rpm-config,rhn-check,rhn-client-tools,rhn-setup,rhnlib,rhnsd \
+      -M <PATH_TO_MANIFEST_FILE>
     ~~~
+    Note: Due to environment-inheritance when using a RHUI-enabled AMI, it's necessary to:
+        * Exclude (with `-x`) all RPMs related to RHUI-enablement
+        * Use a manifest-file rather than the groups-metadata that come from the RHUI repos
 1. Install the AWS utilities by executing:
     ~~~
     ./AWSutils.sh -d ~/RPM/Amazon/ \
@@ -152,7 +158,7 @@ From an official Red Hat 8 AMI from the AWS MarketPlace, it is still a good idea
     ROCKY_SUPPORT_PRODUCT_VERSION="8"
     ~~~
 1. Verify that FIPS-mode is set as expected (`cat /proc/sys/crypto/fips_enabled`). By default, FIPS-mode will be enabled
-1. Verify that the system consists of a single partition (e.g., `df -PHt xfs`) 
+1. Verify that the system consists of a single partition (e.g., `df -PHt xfs`)
 1. Verify that the `/etc/fstab` file looks correct. This should be something like:
     ~~~
     LABEL=root_disk /       xfs     defaults         0 0
