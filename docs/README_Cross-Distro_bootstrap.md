@@ -57,6 +57,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
     Note: Due to environment-inheritance when using a RHUI-enabled AMI, it's necessary to:
         * Exclude (with `-x`) all RPMs related to RHUI-enablement
         * Use a manifest-file rather than the groups-metadata that come from the RHUI repos
+        * Staging the RPMs referenced with the `-r` flag is optional: if your build-host is able to pull those files from an anonymous repo, then the `-r` can be pointed to the relevant URLs. See per-platform notes below.
 1. Install the AWS utilities by executing:
     ~~~
     ./AWSutils.sh -d ~/RPM/Amazon/ \
@@ -217,3 +218,30 @@ When starting from an official Red Hat 8 AMI from the AWS MarketPlace (i.e., one
     ~~~
 1. If sharing the image, either set the image public (to be a good community-citizen) or share to the list of accounts that need to have access
 1. If the bootstrap-images need to be multi-region (mostly if trying to be a good community-citizen), ensure to copy the verified-AMI from the region it was created in to any other region it should exist within.
+
+# Per Platform Usage notes
+
+## Alma Linux
+
+As of this document's author-date, only the `almalinux-release-8.5-3.el8.x86_64.rpm` is needed for the `OSpackages.sh` script's repository-definition files (`-r`)
+
+
+## CentOS 8 Stream
+
+As of this document's author date, the `OSpackages.sh` script's repository-definition files (`-r`) need to include:
+
+* `centos-gpg-keys`
+* `centos-stream-release`
+* `centos-stream-repos`
+
+## Rocky Linux
+
+As of this document's author date, the `OSpackages.sh` script's repository-definition files (`-r`) need to include:
+
+* `rocky-repos`
+* `rocky-release`
+* `rocky-gpg-keys`
+
+## Oracle Linux
+
+Due to issues encountered with Oracle's RHEL8 clone's RPMs and repositories, this project's contents do not currently support use for generating Oracle bootstrap (or "final") AMIs. Please feel free to contribute relevant content.
