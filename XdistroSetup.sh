@@ -78,7 +78,7 @@ function InstallGpgKeys {
       then
          echo yum install -y "${PKGSIGNKEYS}"
       else
-	     printf "Installing %s to /etc/pki/rpm-gpg... " \
+         printf "Installing %s to /etc/pki/rpm-gpg... " \
            "${PKGSIGNKEYS[${LOOP}]}"
          cd /etc/pki/rpm-gpg || err_exit "Could not chdir"
          curl -sOkL "${PKGSIGNKEYS[${LOOP}]}" || err_exit "Download failed"
@@ -106,8 +106,8 @@ function StageDistroRpms {
 
      while [[ LOOP -lt ${#REPORPMS[*]} ]]
      do
-	printf "fetching %s to %s... " "${REPORPMS[${LOOP}]}" \
-	  "${HOME}/RPM/${DISTRONAME}"
+        printf "fetching %s to %s... " "${REPORPMS[${LOOP}]}" \
+          "${HOME}/RPM/${DISTRONAME}"
         curl -sOkL "${REPORPMS[${LOOP}]}"
         echo "Success"
 
@@ -142,7 +142,7 @@ do
                   exit 1
                   ;;
                *)
-		  DISTRONAME="${2}"
+                  DISTRONAME="${2}"
                   shift 2;
                   ;;
             esac
@@ -158,7 +158,7 @@ do
                   exit 1
                   ;;
                *)
-		  IFS=, read -ra PKGSIGNKEYS <<< "$2"
+                  IFS=, read -ra PKGSIGNKEYS <<< "$2"
                   shift 2;
                   ;;
             esac
@@ -171,7 +171,7 @@ do
                   exit 1
                   ;;
                *)
-		  IFS=, read -ra REPORPMS <<< "$2"
+                  IFS=, read -ra REPORPMS <<< "$2"
                   shift 2;
                   ;;
             esac
