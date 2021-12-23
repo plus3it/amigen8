@@ -12,8 +12,8 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
 1. Install the `@development` package-group to the resultant EC2
 1. Login to the EC2
 1. Change to the `root` user (e.g., `sudo -i`)
-1. Clone the AMIgen8 project (this project) to the `root` user's `${HOME}`
 1. Generate an RPM manifest suitable for your distro-clone (the ones marked `Mandatory` and `Default` from CentOS8 stream should be sufficient)
+1. Clone the AMIgen8 project (this project) to the `root` user's `${HOME}`
 1. Use the `XdistroSetup.sh` script to stage the necessary alternate-disto GPG and repository files to the build-environment:
     ~~~
     ./XdistroSetup.sh -d <DISTRO_NAME> \
