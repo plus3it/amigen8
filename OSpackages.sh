@@ -427,7 +427,6 @@ do
       -X|--cross-distro)
             ISCROSSDISTRO=TRUE
             shift
-            break
             ;;
       -x|--exclude-rpms)
             case "$2" in
