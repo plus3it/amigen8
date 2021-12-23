@@ -66,32 +66,29 @@ function UsageMsg {
 
 # Install the alt-distro's GPG key(s)
 function InstallGpgKeys {
-   local LOOP
-   LOOP=0
+   local ITEM
 
-   while [[ LOOP -lt ${#PKGSIGNKEYS[*]} ]]
+   for ITEM in "${PKGSIGNKEYS[*]}"
    do
-      if [[ ${PKGSIGNKEYS[${LOOP}]} == "" ]]
+      if [[ ${ITEM} == "" ]]
       then
          break
-      elif [[ ${PKGSIGNKEYS[${LOOP}]} == *.rpm ]]
+      elif [[ ${ITEM} == *.rpm ]]
       then
-         echo yum install -y "${PKGSIGNKEYS}"
+         echo yum install -y "${ITEM}"
       else
          printf "Installing %s to /etc/pki/rpm-gpg... " \
-           "${PKGSIGNKEYS[${LOOP}]}"
+           "${ITEM}"
          cd /etc/pki/rpm-gpg || err_exit "Could not chdir"
-         curl -sOkL "${PKGSIGNKEYS[${LOOP}]}" || err_exit "Download failed"
+         curl -sOkL "${ITEM}" || err_exit "Download failed"
          echo "Success"
          cd "${RUNDIR}"
       fi
-      LOOP=$(( LOOP + 1))
    done
 }
 
 function StageDistroRpms {
-   local LOOP
-   LOOP=0
+   local ITEM
 
    if [[ ! -d ${HOME}/RPM/${DISTRONAME} ]]
    then
@@ -104,14 +101,12 @@ function StageDistroRpms {
    (
      cd "${HOME}/RPM/${DISTRONAME}"
 
-     while [[ LOOP -lt ${#REPORPMS[*]} ]]
+     for ITEM in "${REPORPMS[*]}"
      do
-        printf "fetching %s to %s... " "${REPORPMS[${LOOP}]}" \
+        printf "fetching %s to %s... " "${ITEM}" \
           "${HOME}/RPM/${DISTRONAME}"
-        curl -sOkL "${REPORPMS[${LOOP}]}"
+        curl -sOkL "${ITEM}"
         echo "Success"
-
-        LOOP=$(( LOOP + 1))
      done
    )
 }
