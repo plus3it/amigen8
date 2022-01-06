@@ -153,6 +153,13 @@ function GetDefaultRepos {
             rhui-client-config-server-8
          )
          ;;
+      oraclelinux-release)
+         BASEREPOS=(
+           ol8_UEKR6
+           ol8_appstream
+           ol8_baseos_latest
+         )
+         ;;
       *)
          echo "Unknown OS. Aborting" >&2
          exit 1
