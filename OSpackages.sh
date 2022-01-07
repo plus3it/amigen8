@@ -173,6 +173,9 @@ function GetDefaultRepos {
 # Install base/setup packages in chroot-dev
 function PrepChroot {
    local -a BASEPKGS
+   local    DNF_ELEM
+   local    DNF_FILE
+   local    DNF_VALUE
 
    # Create an array of packages to install
    BASEPKGS=(
