@@ -214,17 +214,17 @@ function PrepChroot {
    # * Ensure the /etc/dnf and /etc/yum contents are present
    if [[ ${#DNF_ARRAY[*]} -gt 0 ]]
    then
-      echo "Execute DNF hack..."
+      err_exit "Execute DNF hack..." NONE
       for DNF_ELEM in ${DNF_ARRAY[*]}
       do
          DNF_FILE=${DNF_ELEM//=*/}
          DNF_VALUE=${DNF_ELEM//*=/}
 
-         printf "Creating %s... " "${CHROOTMNT}/dnf/vars/${DNF_FILE}"
+         err_exit "Creating ${CHROOTMNT}/dnf/vars/${DNF_FILE}... " NONE
          install -bDm 0644 <( 
            printf "%s" "${DNF_VALUE}"
          ) "${CHROOTMNT}/dnf/vars/${DNF_FILE}" || err_exit Failed
-         echo "Success"
+         err_exit "Success" NONE
       done
    fi
 
