@@ -209,11 +209,12 @@ function PrepChroot {
 
    # Satisfy weird, OL8-dependecy:
    # * Ensure the /etc/dnf and /etc/yum contents are present
-   if [[ ${DNF_HACK:-} == "true" ]]
+   if [[ -n ${OCI_DOMAIN:-} ]]
    then
        echo "Execute DNF hack..."
-       tar cf - /etc/dnf | ( cd "${CHROOTMNT}" && tar xvf - )
-       tar cf - /etc/yum | ( cd "${CHROOTMNT}" && tar xvf - )
+       install -bDm 0644 <( printf "%s" "${OCI_DOMAIN}" ) \
+         "${CHROOTMNT}/dnf/vars/ocidomain"
+       install -bDm 0644 /dev/null "${CHROOTMNT}/dnf/vars/ociregion"
    fi
 
    # Clean out stale RPMs
@@ -349,7 +350,7 @@ function FetchCustomRepos {
 ######################
 OPTIONBUFR=$( getopt \
    -o a:e:Fg:hM:m:r:Xx: \
-   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -403,8 +404,17 @@ do
             UsageMsg 0
             ;;
       --setup-dnf)
-            DNF_HACK=true
-            shift
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  OCI_DOMAIN=${2}
+                  shift 2;
+                  ;;
+            esac
             ;;
       -M|--pkg-manifest)
             case "$2" in
