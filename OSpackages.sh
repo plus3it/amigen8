@@ -103,7 +103,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-e' 'Extra RPMs to install from enabled repos'
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
-      printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
+      printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-4s%s\n' '-X' 'Declare to be a cross-distro build'
@@ -117,6 +117,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
       printf '\t%-20s%s\n' '--repo-rpms' 'See "-r" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
+      printf '\t%-20s%s\n' '--setup-dnf' 'Addresses (OL8) distribution-specific DNF config-needs'
    )
    exit "${SCRIPTEXIT}"
 }
