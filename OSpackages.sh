@@ -206,6 +206,15 @@ function PrepChroot {
       ln -t "${CHROOTMNT}/etc" -s ./rc.d/init.d
    fi
 
+   # Satisfy weird, OL8-dependecy:
+   # * Ensure the /etc/dnf and /etc/yum contents are present
+   if [[ ${DNF_HACK:-} == "true" ]]
+   then
+       echo "Execute DNF hack..."
+       tar cf - /etc/dnf | ( cd "${CHROOTMNT}" && tar xvf - )
+       tar cf - /etc/yum | ( cd "${CHROOTMNT}" && tar xvf - )
+   fi
+
    # Clean out stale RPMs
    if [[ $( stat /tmp/*.rpm > /dev/null 2>&1 )$? -eq 0 ]]
    then
@@ -339,7 +348,7 @@ function FetchCustomRepos {
 ######################
 OPTIONBUFR=$( getopt \
    -o a:e:Fg:hM:m:r:Xx: \
-   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -391,6 +400,10 @@ do
             ;;
       -h|--help)
             UsageMsg 0
+            ;;
+      --setup-dnf)
+            DNF_HACK=true
+            shift
             ;;
       -M|--pkg-manifest)
             case "$2" in
