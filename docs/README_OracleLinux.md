@@ -8,7 +8,7 @@ If using the scripts' default mode, Oracle Linux will be installed using the `@c
 
 ## DNF Uniqueness
 
-Oracle Linux introduces distribution-specific build-order dependencies that effect the initial population of the build's target-disk not previously encountered by this project. In order to work past these dependencies and succesfully produce an OL8 image, it is necessary to invoke the `OSpackages.sh` script with the `--setup-dnf` toggle-flag. Failure to set this flag will result in the `OSpackages.sh` script failing during baseline population of the build process's target-disk with errors similar to:
+Oracle Linux introduces distribution-specific build-order dependencies that effect the initial population of the build's target-disk not previously encountered by this project. In order to work past these dependencies and succesfully produce an OL8 image, it is necessary to invoke the `OSpackages.sh` script with the `--setup-dnf` variable-flag. This flag must be passed a comma-delimited list of variable-names and variable-values. For access to Oracle's public repositories, the recommended valie for this flag is `ociregion=,ocidomain=oracle.com`. Failure to set this flag will result in the `OSpackages.sh` script failing during baseline population of the build process's target-disk with errors similar to:
 
 ~~~
 Errors during downloading metadata for repository 'ol8_baseos_latest':
@@ -35,11 +35,6 @@ error: failed to exec scriptlet interpreter /bin/sh: No such file or directory
 warning: %posttrans(filesystem-3.8-6.el8.x86_64) scriptlet failed, exit status 127
 ~~~
 
-**Note for [cross-distro builds](README_Cross-Distro_bootstrap.md):**
-Due to how the `--setup-dnf` toggle-flag is currently implemented, it will not be possible to use this project's scripts as prescribed in this project's [About the scripts](../README.md#about-the-scripts) section. To effect a cross-distro build, it will be necessary to:
+**Note for use on isolated networks and/or partitions:**
 
-1. Create an archive (reccomend using the `tar` utility) of an OL8 system's `/etc/dnf` and `/etc/yum` directories
-1. Copy the archive to the build-host
-1. Execute the `DiskSetup.sh` and `MkChrootTree.sh` scripts in the order defined in the project-README
-1. Extract the archive into the chroot, ensuring that the archive's contents appear in `${CHROOT}/etc/dnf` and `${CHROOT}/etc/yum`
-1. Execute the remaining build-scripts in the order defined in the project-README
+These scripts have not been valided in scenarios where the Oracle yum repository is a private mirror. If when we have had an opportunity to deploy in such a context, this document and/or the associated documentation will be updated to reflect any issues encountered and how to work around them.
