@@ -209,12 +209,20 @@ function PrepChroot {
 
    # Satisfy weird, OL8-dependecy:
    # * Ensure the /etc/dnf and /etc/yum contents are present
-   if [[ -n ${OCI_DOMAIN:-} ]]
+   if [[ ${#DNF_ARRAY[*]} -gt 0 ]]
    then
-       echo "Execute DNF hack..."
-       install -bDm 0644 <( printf "%s" "${OCI_DOMAIN}" ) \
-         "${CHROOTMNT}/dnf/vars/ocidomain"
-       install -bDm 0644 /dev/null "${CHROOTMNT}/dnf/vars/ociregion"
+      echo "Execute DNF hack..."
+      for DNF_ELEM in ${DNF_ARRAY[*]}
+      do
+         DNF_FILE=${DNF_ELEM//=*/}
+         DNF_VALUE=${DNF_ELEM//*=/}
+
+         printf "Creating %s... " "${CHROOTMNT}/dnf/vars/${DNF_FILE}"
+         install -bDm 0644 <( 
+           printf "%s" "${DNF_VALUE}"
+         ) "${CHROOTMNT}/dnf/vars/${DNF_FILE}" || err_exit Failed
+         echo "Success"
+      done
    fi
 
    # Clean out stale RPMs
@@ -411,7 +419,7 @@ do
                   exit 1
                   ;;
                *)
-                  OCI_DOMAIN=${2}
+                  IFS=, read -ra DNF_ARRAY <<< "$2"
                   shift 2;
                   ;;
             esac
