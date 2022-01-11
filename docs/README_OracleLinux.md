@@ -8,7 +8,7 @@ If using the scripts' default mode, Oracle Linux will be installed using the `@c
 
 ## DNF Uniqueness
 
-Oracle Linux introduces distribution-specific build-order dependencies that effect the initial population of the build's target-disk not previously encountered by this project. In order to work past these dependencies and succesfully produce an OL8 image, it is necessary to invoke the `OSpackages.sh` script with the `--setup-dnf` variable-flag. This flag must be passed a comma-delimited list of variable-names and variable-values. For access to Oracle's public repositories, the recommended valie for this flag is `ociregion=,ocidomain=oracle.com`. Failure to set this flag will result in the `OSpackages.sh` script failing during baseline population of the build process's target-disk with errors similar to:
+Oracle Linux introduces distribution-specific build-order dependencies that effect the initial population of the build's target-disk not previously encountered by this project. In order to work past these dependencies and successfully produce an OL8 image, it is necessary to invoke the `OSpackages.sh` script with the `--setup-dnf` variable-flag. This flag must be passed a comma-delimited list of variable-names and variable-values. For access to Oracle's public repositories, the recommended value for this flag is `ociregion=,ocidomain=oracle.com`. Failure to set this flag will result in the `OSpackages.sh` script failing during baseline population of the build process's target-disk with errors similar to:
 
 ~~~
 Errors during downloading metadata for repository 'ol8_baseos_latest':
