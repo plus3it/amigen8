@@ -103,7 +103,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-e' 'Extra RPMs to install from enabled repos'
       printf '\t%-4s%s\n' '-g' 'RPM-group to intall (default: "core")'
       printf '\t%-4s%s\n' '-h' 'Print this message'
-      printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install (NOT IMPLEMENTED)'
+      printf '\t%-4s%s\n' '-M' 'File containing list of RPMs to install'
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-r' 'List of repo-def repository RPMs or RPM-URLs to install'
       printf '\t%-4s%s\n' '-X' 'Declare to be a cross-distro build'
@@ -117,6 +117,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--repo-activation' 'See "-a" short-option'
       printf '\t%-20s%s\n' '--repo-rpms' 'See "-r" short-option'
       printf '\t%-20s%s\n' '--rpm-group' 'See "-g" short-option'
+      printf '\t%-20s%s\n' '--setup-dnf' 'Addresses (OL8) distribution-specific DNF config-needs'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -153,6 +154,13 @@ function GetDefaultRepos {
             rhui-client-config-server-8
          )
          ;;
+      oraclelinux-release)
+         BASEREPOS=(
+           ol8_UEKR6
+           ol8_appstream
+           ol8_baseos_latest
+         )
+         ;;
       *)
          echo "Unknown OS. Aborting" >&2
          exit 1
@@ -165,6 +173,9 @@ function GetDefaultRepos {
 # Install base/setup packages in chroot-dev
 function PrepChroot {
    local -a BASEPKGS
+   local    DNF_ELEM
+   local    DNF_FILE
+   local    DNF_VALUE
 
    # Create an array of packages to install
    BASEPKGS=(
@@ -199,6 +210,24 @@ function PrepChroot {
       ln -t "${CHROOTMNT}/etc" -s ./rc.d/init.d
    fi
 
+   # Satisfy weird, OL8-dependecy:
+   # * Ensure the /etc/dnf and /etc/yum contents are present
+   if [[ -n "${DNF_ARRAY:-}" ]]
+   then
+      err_exit "Execute DNF hack..." NONE
+      for DNF_ELEM in ${DNF_ARRAY[*]}
+      do
+         DNF_FILE=${DNF_ELEM//=*/}
+         DNF_VALUE=${DNF_ELEM//*=/}
+
+         err_exit "Creating ${CHROOTMNT}/dnf/vars/${DNF_FILE}... " NONE
+         install -bDm 0644 <( 
+           printf "%s" "${DNF_VALUE}"
+         ) "${CHROOTMNT}/dnf/vars/${DNF_FILE}" || err_exit Failed
+         err_exit "Success" NONE
+      done
+   fi
+
    # Clean out stale RPMs
    if [[ $( stat /tmp/*.rpm > /dev/null 2>&1 )$? -eq 0 ]]
    then
@@ -221,7 +250,7 @@ function PrepChroot {
 
    # Install staged RPMs
    err_exit "Installing staged RPMs..." NONE
-   rpm --root "${CHROOTMNT}" -ivh --nodeps /tmp/*.rpm || \
+   rpm --force --root "${CHROOTMNT}" -ivh --nodeps /tmp/*.rpm || \
      err_exit "Failed installing staged RPMs"
 
    # Install dependences for base RPMs
@@ -332,7 +361,7 @@ function FetchCustomRepos {
 ######################
 OPTIONBUFR=$( getopt \
    -o a:e:Fg:hM:m:r:Xx: \
-   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group: \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -384,6 +413,19 @@ do
             ;;
       -h|--help)
             UsageMsg 0
+            ;;
+      --setup-dnf)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  IFS=, read -ra DNF_ARRAY <<< "$2"
+                  shift 2;
+                  ;;
+            esac
             ;;
       -M|--pkg-manifest)
             case "$2" in
