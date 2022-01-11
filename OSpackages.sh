@@ -212,7 +212,7 @@ function PrepChroot {
 
    # Satisfy weird, OL8-dependecy:
    # * Ensure the /etc/dnf and /etc/yum contents are present
-   if [[ ${#DNF_ARRAY[*]} -gt 0 ]]
+   if [[ ${#DNF_ARRAY[*]:-} -gt 0 ]]
    then
       err_exit "Execute DNF hack..." NONE
       for DNF_ELEM in ${DNF_ARRAY[*]}
