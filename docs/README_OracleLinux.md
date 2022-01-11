@@ -37,4 +37,4 @@ warning: %posttrans(filesystem-3.8-6.el8.x86_64) scriptlet failed, exit status 1
 
 **Note for use on isolated networks and/or partitions:**
 
-These scripts have not been valided in scenarios where the Oracle yum repository is a private mirror. If when we have had an opportunity to deploy in such a context, this document and/or the associated documentation will be updated to reflect any issues encountered and how to work around them.
+These scripts have not been validated in scenarios where the Oracle yum repository is a private mirror. If when we have had an opportunity to deploy in such a context, this document and/or the associated documentation will be updated to reflect any issues encountered and how to work around them.
