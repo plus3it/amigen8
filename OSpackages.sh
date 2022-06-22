@@ -220,10 +220,10 @@ function PrepChroot {
          DNF_FILE=${DNF_ELEM//=*/}
          DNF_VALUE=${DNF_ELEM//*=/}
 
-         err_exit "Creating ${CHROOTMNT}/dnf/vars/${DNF_FILE}... " NONE
+         err_exit "Creating ${CHROOTMNT}/etc/dnf/vars/${DNF_FILE}... " NONE
          install -bDm 0644 <( 
            printf "%s" "${DNF_VALUE}"
-         ) "${CHROOTMNT}/dnf/vars/${DNF_FILE}" || err_exit Failed
+         ) "${CHROOTMNT}/etc/dnf/vars/${DNF_FILE}" || err_exit Failed
          err_exit "Success" NONE
       done
    fi
