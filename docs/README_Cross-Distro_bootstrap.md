@@ -55,13 +55,14 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
       -M <PATH_TO_MANIFEST_FILE>
     ~~~
     Note: Due to environment-inheritance when using a RHUI-enabled AMI, it's necessary to:
-        * Exclude (with `-x`) all RPMs related to RHUI-enablement
-        * Use a manifest-file rather than the groups-metadata that come from the RHUI repos
-        * Staging the RPMs referenced with the `-r` flag is optional: if your build-host is able to pull those files from an anonymous repo, then the `-r` can be pointed to the relevant URLs. See per-platform notes below.
+    * Exclude (with `-x`) all RPMs related to RHUI-enablement
+    * Use a manifest-file rather than the groups-metadata that come from the RHUI repos
+    * Staging the RPMs referenced with the `-r` flag is optional: if your build-host is able to pull those files from an anonymous repo, then the `-r` can be pointed to the relevant URLs. See per-platform notes below.
+    * If bootstrapping to Oracle Linux 8, it will be necessary to export the `DNF_VAR_ocidomain` and `DNF_VAR_ociregion` environment variables. If using Oracle's public repositories, the values are `oracle.com` and `""`, respectively
+
 1. (Optional) Install the AWS utilities by executing:
     ~~~
     ./AWSutils.sh -d ~/RPM/Amazon/ \
-      -C <URL_OF_AWSCLIv1_BUNDLE> \
       -c <URL_OF_AWSCLIv2_BUNDLE> \
       -s <URL_OF_AWS_SSM_AGENT_RPM> \
       -m /mnt/ec2-root
@@ -69,11 +70,11 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
     This will typically look something like:
     ~~~
     ./AWSutils.sh -d ~/RPM/Amazon/ \
-      -C https://s3.amazonaws.com/aws-cli/awscli-bundle.zip \
       -c https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip \
       -s https://s3.us-east-1.amazonaws.com/amazon-ssm-us-east-1/latest/linux_amd64/amazon-ssm-agent.rpm \
       -m /mnt/ec2-root
     ~~~
+    Note: If bootstrapping to Oracle Linux 8, see `DNF_VAR_*` note in the prior step
 1. Apply SELinux labels, install GRUB2 stuff, etc., by executing:
     ~~~
     ./PostBuild.sh -f xfs -m /mnt/ec2-root -X -z <PREFERRED_TIMEZONE>
@@ -85,7 +86,7 @@ Depending on your CSP's environment, there may be no suitable starting-point AMI
     Note: To ensure that the resultant AMI is _not_ FIPS-enabled, add the `--no-fips` long-option. Similarly, to ensure that `/tmp` is not set up as a `tmpfs` pseudo-filesyste, add the `--no-tmpfs`long-option.
 1. Unmount the disk by executing:
     ~~~
-    ./Umount -c /mnt/ec2-root
+    ./Umount.sh -c /mnt/ec2-root
     ~~~
 
 ## Create Image
