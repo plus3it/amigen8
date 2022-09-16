@@ -72,7 +72,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
       printf '\t%-6s%s\n' '' 'Default layout:'
       # shellcheck disable=SC2048
-      for PART in ${DEFGEOMARR[*]}
+      for PART in "${DEFGEOMARR[@]}"
       do
          printf '\t%-8s%s\n' '' "${PART}"
       done
