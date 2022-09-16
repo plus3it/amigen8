@@ -13,6 +13,7 @@ Usage: ./DiskSetup.sh [GNU long option] [option] ...
                 swap:swapVol:2
                 /home:homeVol:1
                 /var:varVol:2
+                /var/tmp:varTmpVol:2
                 /var/log:logVol:2
                 /var/log/audit:auditVol:100%%FREE
         -r  Label to apply to root-partition if not using LVM (default: root_disk)

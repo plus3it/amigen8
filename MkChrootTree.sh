@@ -13,6 +13,7 @@ DEFGEOMARR=(
       swap:swapVol:2
       /home:homeVol:1
       /var:varVol:2
+      /var/tmp:varTmpVol:2
       /var/log:logVol:2
       /var/log/audit:auditVol:100%FREE
    )
@@ -70,7 +71,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-m' 'Where to mount chroot-dev (default: "/mnt/ec2-root")'
       printf '\t%-4s%s\n' '-p' 'Comma-delimited string of colon-delimited partition-specs'
       printf '\t%-6s%s\n' '' 'Default layout:'
-      for PART in ${DEFGEOMARR[*]}
+      for PART in "${DEFGEOMARR[@]}"
       do
          printf '\t%-8s%s\n' '' "${PART}"
       done
@@ -122,7 +123,7 @@ function DoLvmMounts {
    IFS="${SAVIFS}"
 
    # Create associative-array with mountpoints as keys
-   for ELEM in ${PARTITIONARRAY[*]}
+   for ELEM in "${PARTITIONARRAY[@]}"
    do
       MOUNTINFO[${ELEM//:*/}]=${ELEM#*:}
    done
@@ -178,7 +179,7 @@ function PrepSpecialDevs {
    mkdir -p "${CHROOTMNT}"/{proc,sys,dev/{pts,shm}}
 
    # Create character-special files
-   for DEVSTR in ${CHARDEVS[*]}
+   for DEVSTR in "${CHARDEVS[@]}"
    do
       DEVICE=$( cut -d: -f 1 <<< "${DEVSTR}" )
       DEVMAJ=$( cut -d: -f 2 <<< "${DEVSTR}" )
