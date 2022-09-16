@@ -61,6 +61,7 @@ function UsageMsg {
       printf '\t%-8s%s\n' '' 'swap:swapVol:2'
       printf '\t%-8s%s\n' '' '/home:homeVol:1'
       printf '\t%-8s%s\n' '' '/var:varVol:2'
+      printf '\t%-8s%s\n' '' '/var/tmp:varTmpVol:2'
       printf '\t%-8s%s\n' '' '/var/log:logVol:2'
       printf '\t%-8s%s\n' '' '/var/log/audit:auditVol:100%%FREE'
       printf '\t%-4s%s\n' '-r' 'Label to apply to root-partition if not using LVM (default: root_disk)'
@@ -95,6 +96,7 @@ function CarveLVM {
        PARTITIONSTR+=",swap:swapVol:2"
        PARTITIONSTR+=",/home:homeVol:1"
        PARTITIONSTR+=",/var:varVol:2"
+       PARTITIONSTR+=",/var/tmp:varTmpVol:2"
        PARTITIONSTR+=",/var/log:logVol:2"
        PARTITIONSTR+=",/var/log/audit:auditVol:100%FREE"
    else
