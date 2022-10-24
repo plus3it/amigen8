@@ -448,6 +448,14 @@ function SetupTmpfs {
    fi
 }
 
+# Initialize authselect Subsystem
+function authselectInit {
+   err_exit "Attempting to initialize authselect... " NONE
+   chroot "${CHROOTMNT}" /bin/authselect select sssd --force || \
+     err_exit "Failed initializing authselect" 1
+   err_exit "Succeeded initializing authselect" NONE
+}
+
 ######################
 ## Main program-flow
 ######################
@@ -572,6 +580,9 @@ ConfigureCloudInit
 
 # Do GRUB2 setup tasks
 GrubSetup
+
+# Initialize authselect subsystem
+authselectInit
 
 # Clean up yum/dnf history
 CleanHistory
