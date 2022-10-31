@@ -346,6 +346,10 @@ function InstallCfnBootstrap {
       chroot "${CHROOTMNT}" tar -C /opt/aws/apitools/cfn-init/ -xzv --wildcards --no-anchored --strip-components=1 -f "${TMPDIR}/aws-cfn-bootstrap.tar.gz" redhat/cfn-hup || \
          err_exit "Failed to extract cfn-hup service definition"
 
+      err_exit "Ensure no invalid file-ownership on binary... " NONE
+      chroot "${CHROOTMNT}" chown root:root /opt/aws/apitools/cfn-init/init/redhat/cfn-hup || \
+         err_exit "Failed setting user/group on .../cfn-hup" 
+
       err_exit "Creating symlink for cfn-hup service..." NONE
       chroot "${CHROOTMNT}" ln -sf /opt/aws/apitools/cfn-init/init/redhat/cfn-hup /etc/init.d/cfn-hup || \
          err_exit "Failed creating symlink for cfn-hup service"
