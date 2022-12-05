@@ -375,7 +375,7 @@ function GrubSetup {
      err_exit "Failed to install GRUB config-file"
 
    # Make intramfs in chroot-dev
-   if [[ ${FIPSDISABLE} == "UNDEF" ]]
+   if [[ ${FIPSDISABLE} != "true" ]]
    then
       err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
       chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
