@@ -89,6 +89,23 @@ function EnsurePy3 {
    fi
 }
 
+# Make sure `fapolicyd` exemptions are pre-staged
+function ExemptFapolicyd {
+   local RULE_DIR
+   local RULE_FILE
+
+   RULE_DIR="/etc/fapolicyd/rules.d"
+   RULE_FILE="${RULE_DIR}/30-aws.rules"
+
+   chroot "${CHROOTMNT}" install -dDm 0755 -o root -g root "${RULE_DIR}"
+   chroot "${CHROOTMNT}" install -bDm 0644 -o root -g root <(
+      printf "allow perm=any all : dir=/usr/local/aws-cli/v2/ "
+      printf "type=application/x-executable trust 1\n"
+      printf "allow perm=any all : dir=/usr/local/aws-cli/v2/ "
+      printf "type=application/x-sharedlib trust 1\n"
+   ) "${RULE_FILE}"
+}
+
 # Install AWS CLI version 1.x
 function InstallCLIv1 {
    local INSTALLDIR
@@ -523,6 +540,9 @@ InstallFromDir
 
 # Install AWS CFN Bootstrap
 InstallCfnBootstrap
+
+# Set up fapolicyd Exemption
+ExemptFapolicyd
 
 # Enable services
 EnableServices
