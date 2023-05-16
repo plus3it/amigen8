@@ -407,6 +407,13 @@ function SELsetup {
       err_exit "Running fixfiles in chroot..." NONE
       chroot "${CHROOTMNT}" /sbin/fixfiles -f relabel || \
         err_exit "Errors running fixfiles"
+   elif [[ $(
+      grep -Eq '^SELINUX=(enabled|permissive)' "${CHROOTMNT}/etc/selinux/config"
+   )$? -eq 0 ]]
+   then
+      err_exit "Cofiguring image for relabel-at-boot operation"
+      touch "${CHROOTMNT}/.autorelabel" || \
+        err_exit "Failed creating /.autorelabel file"
    else
       err_exit "SELinux not available" NONE
    fi
