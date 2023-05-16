@@ -411,7 +411,7 @@ function SELsetup {
       grep -Eq '^SELINUX=(enabled|permissive)' "${CHROOTMNT}/etc/selinux/config"
    )$? -eq 0 ]]
    then
-      err_exit "Cofiguring image for relabel-at-boot operation"
+      err_exit "Cofiguring image for relabel-at-boot operation" NONE
       touch "${CHROOTMNT}/.autorelabel" || \
         err_exit "Failed creating /.autorelabel file"
    else
