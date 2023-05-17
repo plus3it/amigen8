@@ -159,6 +159,7 @@ function WaagentSetup {
   err_exit "Success!" NONE
 
   #  6. Configure waagent for cloud-init
+  #  For details on waagent config options, see: https://github.com/Azure/WALinuxAgent#configuration-file-options
   err_exit "Writing config-date to /etc/waagent.conf... " NONE
   chroot "${AMIGENCHROOT}" sed -i \
     -e 's/Provisioning.Agent=auto/Provisioning.Agent=auto/g' \
