@@ -153,7 +153,7 @@ function WaagentSetup {
 
   #  5. No static network-naming rules...
   err_exit "Disabling static udev network-naming rules... " NONE
-  chroot "${AMIGENCHROOT}" ln -s /dev/null \
+  chroot "${CHROOTMNT}" ln -s /dev/null \
     /etc/udev/rules.d/75-persistent-net-generator.rules ||
     err_exit "Failed disabling static udev network-naming rules" 1
   err_exit "Success!" NONE
@@ -161,7 +161,7 @@ function WaagentSetup {
   #  6. Configure waagent for cloud-init
   #  For details on waagent config options, see: https://github.com/Azure/WALinuxAgent#configuration-file-options
   err_exit "Writing config-date to /etc/waagent.conf... " NONE
-  chroot "${AMIGENCHROOT}" sed -i \
+  chroot "${CHROOTMNT}" sed -i \
     -e 's/Provisioning.Agent=auto/Provisioning.Agent=auto/g' \
     -e 's/ResourceDisk.Format=y/ResourceDisk.Format=n/g' \
     -e 's/ResourceDisk.EnableSwap=y/ResourceDisk.EnableSwap=n/g' \
@@ -176,7 +176,7 @@ function WaagentSetup {
     echo "datasource:"
     echo "  Azure:"
     echo "    apply_network_config: False"
-  ) "${AMIGENCHROOT}/etc/cloud/cloud.cfg.d/91-azure_datasource.cfg" || \
+  ) "${CHROOTMNT}/etc/cloud/cloud.cfg.d/91-azure_datasource.cfg" || \
     err_exit "Failed configuring Azure datasource" 1
   err_exit "Success!" NONE
 
@@ -187,13 +187,13 @@ function WaagentSetup {
     echo "# 'tee -a /var/log/cloud-init-output.log' so the user can see output"
     echo "# there without needing to look on the console."
     echo "output: {all: '| tee -a /var/log/cloud-init-output.log'}"
-  ) "${AMIGENCHROOT}/etc/cloud/cloud.cfg.d/05_logging.cfg" || \
+  ) "${CHROOTMNT}/etc/cloud/cloud.cfg.d/05_logging.cfg" || \
     err_exit "Failed configuring console-logging for cloud-init" 1
   err_exit "Success!" NONE
 
   # 9. Enable the services
   err_exit "Enabling the waagent.service systemd unit" NONE
-  chroot "${AMIGENCHROOT}" systemctl enable waagent.service || \
+  chroot "${CHROOTMNT}" systemctl enable waagent.service || \
     err_exit "Failed enabling waagent.service" 1
   err_exit "Success!" NONE
 }
