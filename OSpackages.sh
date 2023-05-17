@@ -250,7 +250,7 @@ function PrepChroot {
 
    # Install staged RPMs
    err_exit "Installing staged RPMs..." NONE
-   rpm --force --root "${CHROOTMNT}" -ivh --nodeps /tmp/*.rpm || \
+   rpm --force --root "${CHROOTMNT}" -ivh --nodeps --nopre /tmp/*.rpm || \
      err_exit "Failed installing staged RPMs"
 
    # Install dependences for base RPMs
