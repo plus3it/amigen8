@@ -189,16 +189,7 @@ function WaagentSetup {
     err_exit "Failed configuring console-logging for cloud-init" 1
   err_exit "Success!" NONE
 
-  #  9. Don't create swap space on the operating system disk.
-  err_exit "Configure swap-space creation..." NONE
-  chroot "${AMIGENCHROOT}" sed -i \
-    -e 's/ResourceDisk.Format=y/ResourceDisk.Format=n/g' \
-    -e 's/ResourceDisk.EnableSwap=y/ResourceDisk.EnableSwap=n/g' \
-    /etc/waagent.conf
-    err_exit "Failed configuring swap-space creation" 1
-  err_exit "Success!" NONE
-
-  # 10. Enable the services
+  # 9. Enable the services
   err_exit "Enabling the waagent.service systemd unit" NONE
   chroot "${AMIGENCHROOT}" systemctl enable waagent.service || \
     err_exit "Failed enabling waagent.service" 1
