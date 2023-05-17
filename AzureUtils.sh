@@ -6,9 +6,10 @@ set -eu -o pipefail
 #######################################################################
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
+DEBUG="${DEBUG:-UNDEF}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
-if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
+if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG:-} == "UNDEF" ]]
 then
    DEBUG="true"
 fi
@@ -24,7 +25,7 @@ function err_exit {
    ISNUM='^[0-9]+$'
    SCRIPTEXIT="${2:-1}"
 
-   if [[ ${DEBUG} == true ]]
+   if [[ ${DEBUG:-} == true ]]
    then
       # Our output channels
       logger -i -t "${PROGNAME}" -p kern.crit -s -- "${ERRSTR}"
