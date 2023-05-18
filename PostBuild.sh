@@ -417,7 +417,7 @@ function SELsetup {
    else
       if [[ -d ${CHROOTMNT}/etc/selinux/config ]]
       then
-         grep '^SELINUX=' ${CHROOTMNT}/etc/selinux/config
+         grep '^SELINUX=' "${CHROOTMNT}/etc/selinux/config"
       else
          echo "${CHROOTMNT}/etc/selinux/config does not exist"
       fi
