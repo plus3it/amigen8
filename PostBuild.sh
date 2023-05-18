@@ -130,51 +130,43 @@ function CreateFstab {
 
 # Configure cloud-init
 function ConfigureCloudInit {
-   local CLOUDCFG
-   local CLINITUSR
+    local CLOUDCFG
 
-   CLOUDCFG="${CHROOTMNT}/etc/cloud/cloud.cfg"
-   CLINITUSR=$( grep -E "name: (maintuser|centos|ec2-user|cloud-user)" \
-            "${CLOUDCFG}" | awk '{print $2}')
+    CLOUDCFG="${CHROOTMNT}/etc/cloud/cloud.cfg"
 
-   # Reset key parms in standard cloud.cfg file
-   if [ "${CLINITUSR}" = "" ]
-   then
-      err_exit "Astandard cloud-init file: can't reset default-user config"
-   else
-      # Ensure passwords *can* be used with SSH
-      err_exit "Allow password logins to SSH..." NONE
-      sed -i -e '/^ssh_pwauth/s/0$/1/' "${CLOUDCFG}" || \
-        err_exit "Failed allowing password logins"
+    # Ensure passwords *can* be used with SSH
+    err_exit "Allow password logins to SSH..." NONE
+    sed -i -e '/^ssh_pwauth/s/0$/1/' "${CLOUDCFG}" || \
+    err_exit "Failed allowing password logins"
 
-      # Delete current "system_info:" block
-      err_exit "Nuking standard system_info block..." NONE
-      sed -i '/^system_info/,/^  ssh_svcname/d' "${CLOUDCFG}" || \
-        err_exit "Failed to nuke standard system_info block"
+    # Delete current "system_info:" block
+    err_exit "Nuking standard system_info block..." NONE
+    sed -i '/^system_info/,/^$/d' "${CLOUDCFG}" || \
+    err_exit "Failed to nuke standard system_info block"
 
-      # Replace deleted "system_info:" block
-      (
-         printf "system_info:\n"
-         printf "  default_user:\n"
-         printf "    name: '%s'\n" "${MAINTUSR}"
-         printf "    lock_passwd: true\n"
-         printf "    gecos: Local Maintenance User\n"
-         printf "    groups: [wheel, adm]\n"
-         printf "    sudo: [ 'ALL=(root) NOPASSWD:ALL' ]\n"
-         printf "    shell: /bin/bash\n"
-         printf "    selinux_user: unconfined_u\n"
-         printf "  distro: rhel\n"
-         printf "  paths:\n"
-         printf "    cloud_dir: /var/lib/cloud\n"
-         printf "    templates_dir: /etc/cloud/templates\n"
-         printf "  ssh_svcname: sshd\n"
-      ) >> "${CLOUDCFG}"
+    # Replace deleted "system_info:" block
+    (
+        printf "\n"
+        printf "system_info:\n"
+        printf "  default_user:\n"
+        printf "    name: '%s'\n" "${MAINTUSR}"
+        printf "    lock_passwd: true\n"
+        printf "    gecos: Local Maintenance User\n"
+        printf "    groups: [wheel, adm]\n"
+        printf "    sudo: [ 'ALL=(root) NOPASSWD:ALL' ]\n"
+        printf "    shell: /bin/bash\n"
+        printf "    selinux_user: unconfined_u\n"
+        printf "  distro: rhel\n"
+        printf "  paths:\n"
+        printf "    cloud_dir: /var/lib/cloud\n"
+        printf "    templates_dir: /etc/cloud/templates\n"
+        printf "  ssh_svcname: sshd\n"
+    ) >> "${CLOUDCFG}"
 
-      # Update NS-Switch map-file for SEL-enabled environment
-      err_exit "Enabling SEL lookups by nsswitch..." NONE
-      printf "%-12s %s\n" sudoers: files >> "${CHROOTMNT}/etc/nsswitch.conf" || \
-        err_exit "Failed enabling SEL lookups by nsswitch"
-   fi
+    # Update NS-Switch map-file for SEL-enabled environment
+    err_exit "Enabling SEL lookups by nsswitch..." NONE
+    printf "%-12s %s\n" sudoers: files >> "${CHROOTMNT}/etc/nsswitch.conf" || \
+    err_exit "Failed enabling SEL lookups by nsswitch"
 
 }
 
