@@ -407,14 +407,13 @@ function SELsetup {
       err_exit "Running fixfiles in chroot..." NONE
       chroot "${CHROOTMNT}" /sbin/fixfiles -f relabel || \
         err_exit "Errors running fixfiles"
-   elif [[ $(
-      grep -Eq '^SELINUX=(enabled|permissive)' "${CHROOTMNT}/etc/selinux/config"
-   )$? -eq 0 ]]
-   then
-      err_exit "Cofiguring image for relabel-at-boot operation" NONE
+   else
+      # The selinux-policy RPM's %post script currently is not doing The Right
+      # Thing (TM), necessitating the creation of a /.autorelabel file in this
+      # section. Have filed BugZilla ID #2208282 with Red Hat
       touch "${CHROOTMNT}/.autorelabel" || \
         err_exit "Failed creating /.autorelabel file"
-   else
+
       err_exit "SELinux not available" NONE
    fi
 
