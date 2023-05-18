@@ -415,6 +415,12 @@ function SELsetup {
       touch "${CHROOTMNT}/.autorelabel" || \
         err_exit "Failed creating /.autorelabel file"
    else
+      if [[ -d ${CHROOTMNT}/etc/selinux/config ]]
+      then
+         grep '^SELINUX=' ${CHROOTMNT}/etc/selinux/config
+      else
+         echo "${CHROOTMNT}/etc/selinux/config does not exist"
+      fi
       err_exit "SELinux not available" NONE
    fi
 
