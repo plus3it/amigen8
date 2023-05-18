@@ -98,7 +98,7 @@ function WaagentSetup {
       install --assumeyes --quiet WALinuxAgent || \
       err_exit "Failed installing WALinuxAgent" 1
     err_exit "Success!" NONE
-    
+
   fi
 
   err_exit "Configuring waagent..." NONE
