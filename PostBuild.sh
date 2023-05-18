@@ -407,6 +407,7 @@ function SELsetup {
       err_exit "Running fixfiles in chroot..." NONE
       chroot "${CHROOTMNT}" /sbin/fixfiles -f relabel || \
         err_exit "Errors running fixfiles"
+   # This block *shouldn't* be necessary
    elif [[ $(
       grep -Eq '^SELINUX=(enabled|permissive)' "${CHROOTMNT}/etc/selinux/config"
    )$? -eq 0 ]]
@@ -414,16 +415,14 @@ function SELsetup {
       err_exit "Cofiguring image for relabel-at-boot operation" NONE
       touch "${CHROOTMNT}/.autorelabel" || \
         err_exit "Failed creating /.autorelabel file"
+   # Nor should this block, but...
    else
-      if [[ -d ${CHROOTMNT}/etc/selinux/config ]]
-      then
-         grep '^SELINUX=' "${CHROOTMNT}/etc/selinux/config"
-      else
-         echo "${CHROOTMNT}/etc/selinux/config does not exist"
-         echo "Looking for SELinux config-file..."
-         find -L "${CHROOTMNT}/etc" -type f -print0 | xargs -0 grep -L '^SELINUX='
-         printf "\nDone\n\n"
-      fi
+      # The selinux-policy RPM's %post script currently is not doing The Right
+      # Thing (TM), necessitating the creation of a /.autorelabel file in this
+      # section. Have filed BugZilla ID #2208282 with Red Hat
+      touch "${CHROOTMNT}/.autorelabel" || \
+        err_exit "Failed creating /.autorelabel file"
+
       err_exit "SELinux not available" NONE
    fi
 
