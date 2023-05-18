@@ -420,6 +420,9 @@ function SELsetup {
          grep '^SELINUX=' "${CHROOTMNT}/etc/selinux/config"
       else
          echo "${CHROOTMNT}/etc/selinux/config does not exist"
+         echo "Looking for SELinux config-file..."
+         find -L "${CHROOTMNT}/etc" -type f -print0 | xargs -0 grep -L '^SELINUX='
+         printf "\nDone\n\n"
       fi
       err_exit "SELinux not available" NONE
    fi
