@@ -23,6 +23,7 @@ MINXTRAPKGS=(
       kexec-tools
       libnsl
       lvm2
+      mailx
       rng-tools
       unzip
    )
