@@ -123,10 +123,17 @@ function CreateFstab {
    mapfile -t SWAP_DEVS < <( blkid | awk -F: '/TYPE="swap"/{ print $1 }' )
    for SWAP in "${SWAP_DEVS[@]}"
    do
-       err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
-       printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" >> "${CHROOTMNT}/etc/fstab" ||
-           err_exit "Failed adding ${SWAP} to ${CHROOTMNT}/etc/fstab"
-      err_exit "Success" NONE
+       if [[ $( grep -q readlink -f "${SWAP}" /proc/swaps )$? -eq 0 ]]
+       then
+          err_exit "${SWAP} is already a mounted swap-dev. Skipping" NONE
+          break
+       else
+           err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
+           printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" \
+               >> "${CHROOTMNT}/etc/fstab" || \
+               err_exit "Failed adding ${SWAP} to ${CHROOTMNT}/etc/fstab"
+           err_exit "Success" NONE
+       fi
    done
 
    # Set an SELinux label
