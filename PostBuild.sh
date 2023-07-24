@@ -85,8 +85,9 @@ function CleanHistory {
 
 # Set up fstab
 function CreateFstab {
-   local CHROOTDEV
-   local CHROOTFSTYP
+   local    CHROOTDEV
+   local    CHROOTFSTYP
+   local -a SWAP_DEVS
    CHROOTDEV="$( findmnt -cnM "${CHROOTMNT}" -o SOURCE )"
    CHROOTFSTYP="$( findmnt -cnM "${CHROOTMNT}" -o FSTYPE )"
 
@@ -117,6 +118,23 @@ function CreateFstab {
           -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
         err_exit "Failed setting up /etc/fstab"
    fi
+
+   # Add any swaps to fstab
+   mapfile -t SWAP_DEVS < <( blkid | awk -F: '/TYPE="swap"/{ print $1 }' )
+   for SWAP in "${SWAP_DEVS[@]}"
+   do
+       if [[ $( grep -q "$( readlink -f "${SWAP}" )" /proc/swaps )$? -eq 0 ]]
+       then
+          err_exit "${SWAP} is already a mounted swap-dev. Skipping" NONE
+          continue
+       else
+           err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
+           printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" \
+               >> "${CHROOTMNT}/etc/fstab" || \
+               err_exit "Failed adding ${SWAP} to ${CHROOTMNT}/etc/fstab"
+           err_exit "Success" NONE
+      fi
+   done
 
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -160,9 +178,9 @@ function ConfigureCloudInit {
          printf "    lock_passwd: true\n"
          printf "    gecos: Local Maintenance User\n"
          printf "    groups: [wheel, adm]\n"
-         printf "    sudo: [ 'ALL=(root) NOPASSWD:ALL' ]\n"
+         printf "    sudo: ['ALL=(root) TYPE=sysadm_t ROLE=sysadm_r NOPASSWD:ALL']\n"
          printf "    shell: /bin/bash\n"
-         printf "    selinux_user: unconfined_u\n"
+         printf "    selinux_user: staff_u\n"
          printf "  distro: rhel\n"
          printf "  paths:\n"
          printf "    cloud_dir: /var/lib/cloud\n"
