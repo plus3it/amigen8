@@ -85,8 +85,9 @@ function CleanHistory {
 
 # Set up fstab
 function CreateFstab {
-   local CHROOTDEV
-   local CHROOTFSTYP
+   local    CHROOTDEV
+   local    CHROOTFSTYP
+   local -a SWAP_DEVS
    CHROOTDEV="$( findmnt -cnM "${CHROOTMNT}" -o SOURCE )"
    CHROOTFSTYP="$( findmnt -cnM "${CHROOTMNT}" -o FSTYPE )"
 
@@ -117,6 +118,16 @@ function CreateFstab {
           -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
         err_exit "Failed setting up /etc/fstab"
    fi
+
+   # Add any swaps to fstab
+   mapfile -t SWAP_DEVS < <( blkid | awk -F: '/TYPE="swap"/{ print $1 }' )
+   for SWAP in "${SWAP_DEVS[@]}"
+   do
+       err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
+       printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" >> "${CHROOTMNT}/etc/fstab" ||
+           err_exit "Failed adding ${SWAP} to ${CHROOTMNT}/etc/fstab"
+      err_exit "Success" NONE
+   done
 
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
