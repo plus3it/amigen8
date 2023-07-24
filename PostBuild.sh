@@ -126,7 +126,7 @@ function CreateFstab {
        if [[ $( grep -q "$( readlink -f "${SWAP}" )" /proc/swaps )$? -eq 0 ]]
        then
           err_exit "${SWAP} is already a mounted swap-dev. Skipping" NONE
-          break
+          continue
        else
            err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
            printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" \
