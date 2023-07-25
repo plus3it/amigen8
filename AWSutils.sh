@@ -385,6 +385,17 @@ function InstallCfnBootstrap {
    fi
 }
 
+# shellcheck disable=SC2016,SC1003
+function ProfileSetupAwsCli {
+  install -bDm 0644 -o root -g root <(
+    echo 'AWS_DEFAULT_REGION="$('
+    echo '  curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | \'
+    echo '  python3 -c '"'"'import sys, json; print(json.load(sys.stdin)["region"])'"'"''
+    echo ')"'
+    printf '\nexport AWS_DEFAULT_REGION\n'
+  ) /etc/profile.d/aws_envs.sh
+}
+
 
 ######################
 ## Main program-flow
@@ -546,3 +557,6 @@ ExemptFapolicyd
 
 # Enable services
 EnableServices
+
+# Set up /etc/profile.d file for AWS CLI
+ProfileSetupAwsCli
