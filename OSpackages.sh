@@ -361,7 +361,7 @@ function FetchCustomRepos {
 ######################
 OPTIONBUFR=$( getopt \
    -o a:e:Fg:hM:m:r:Xx: \
-   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,pkg-manifest:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
