@@ -12,6 +12,7 @@ GRUBTMOUT="${GRUBTMOUT:-5}"
 MAINTUSR="${MAINTUSR:-"maintuser"}"
 NOTMPFS="${NOTMPFS:-UNDEF}"
 TARGTZ="${TARGTZ:-UTC}"
+SUBSCRIPTION_MANAGER="${SUBSCRIPTION_MANAGER:-disabled}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -67,6 +68,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--no-fips' 'See "-F" short-option'
       printf '\t%-20s%s\n' '--no-tmpfs' 'Disable /tmp as tmpfs behavior'
       printf '\t%-20s%s\n' '--timezone' 'See "-z" short-option'
+      printf '\t%-20s%s\n' '--use-submgr' 'Do not disable subscription-manager service'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -480,12 +482,28 @@ function authselectInit {
    err_exit "Succeeded initializing authselect" NONE
 }
 
+# Disable subscription-manager
+function DisableSubscriptionManager {
+  local YUM_CONF
+  YUM_CONF=$( readlink -f /etc/yum/pluginconf.d/subscription-manager.conf )
+  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]]
+  then
+     return
+  fi
+
+  err_exit "Attempting to disable subscription-manager service... " NONE
+  chroot "${CHROOTMNT}" /bin/sed -i '/^enabled/s/1$/0/' "${YUM_CONF}" || \
+    err_exit "Failed to disable subscription-manager service" 1
+  err_exit "Succeeded disabling subscription-manager service" NONE
+}
+
+
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
    -o Ff:hm:t:Xz: \
-   --long cross-distro,fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone \
+   --long cross-distro,fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone,use-submgr \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -496,6 +514,10 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      --use-submgr)
+           SUBSCRIPTION_MANAGER="enabled"
+           shift 1;
+           ;;
       -F|--no-fips)
            FIPSDISABLE="true"
            shift 1;
@@ -589,6 +611,9 @@ SetupTmpfs
 
 # Configure logging
 ConfigureLogging
+
+# Turn of spurious 'entitlement server' warnings
+DisableSubscriptionManager
 
 # Configure networking
 ConfigureNetworking

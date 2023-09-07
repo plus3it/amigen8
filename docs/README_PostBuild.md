@@ -16,6 +16,7 @@ Usage: ./PostBuild.sh [GNU long option] [option] ...
         --no-tmpfs          Disable /tmp as tmpfs behavior
         --initial-user      See "-p" short-option
         --timezone          See "-z" short-option
+        --use-submgr        Do not disable subscription-manager service
 ~~~
 
 Each of the functionality flag-options may also be specified by using environment variables:
@@ -23,6 +24,7 @@ Each of the functionality flag-options may also be specified by using environmen
 - `CHROOTMNT`: Stands in for the `-m`/`--mountpoint` flag-option. This env (or corresponding flags) is only necessary if the corresponding flag was used when invoking prior scripts.
 - `FSTYPE`: Stands in for the `-f`/`--fstype` flag-option. This env (or corresponding flags) is only necessary if the corresponding flag was used when invoking prior scripts.
 - `MAINTUSR`: Stands in for the `-i`/`--initial-user` flag-option. This env (or corresponding flags) is only necessary if desiring to override the username assigned to the AMI's default-user account.
+- `SUBSCRIPTION_MANAGER`: If set to `enabled`, stands in for the `--use-submgr` option-toggle
 - `TARGTZ`: Stands in for the `-z`/`--timezone` flag-option. This env (or corresponding flags) is only necessary if desiring to override AMI's default timezone-setting
 
 
