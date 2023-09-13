@@ -486,7 +486,7 @@ function authselectInit {
 function DisableSubscriptionManager {
   local YUM_CONF
   YUM_CONF=$( readlink -f /etc/yum/pluginconf.d/subscription-manager.conf )
-  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]]
+  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]] || [[ ! -e ${YUM_CONF ]]
   then
      return
   fi
