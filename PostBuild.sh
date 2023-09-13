@@ -485,11 +485,16 @@ function authselectInit {
 # Disable subscription-manager
 function DisableSubscriptionManager {
   local YUM_CONF
-  YUM_CONF=$( readlink -f /etc/yum/pluginconf.d/subscription-manager.conf )
-  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]] || [[ ! -e ${YUM_CONF ]]
+
+  # Early exit if user *wants* subscription-manager enabled or the edge-case
+  # where its RPM isn't even installed
+  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]] ||
+     [[ $( rpm -q --quiet subscription-manager )$? -ne 0 ]]
   then
      return
   fi
+
+  YUM_CONF=$( readlink -f /etc/yum/pluginconf.d/subscription-manager.conf )
 
   err_exit "Attempting to disable subscription-manager service... " NONE
   chroot "${CHROOTMNT}" /bin/sed -i '/^enabled/s/1$/0/' "${YUM_CONF}" || \
