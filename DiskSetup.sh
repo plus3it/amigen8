@@ -6,6 +6,7 @@ set -eu -o pipefail
 #################################################################
 PROGNAME=$(basename "$0")
 BOOTDEVSZ="${BOOTDEVSZ:-500m}"
+BOOTLABEL="#{BOOTLABEL:-/boot}"
 CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
@@ -52,6 +53,7 @@ function UsageMsg {
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
       printf '\t%-4s%s\n' '-B' 'Boot-partition size (default: 500MiB)'
+      printf '\t%-4s%s\n' '-b' 'FS-label applied to boot-partition (default: /boot)'
       printf '\t%-4s%s\n' '-d' 'Base dev-node used for build-device'
       printf '\t%-4s%s\n' '-f' 'Filesystem-type used for root filesystems (default: xfs)'
       printf '\t%-4s%s\n' '-h' 'Print this message'
@@ -67,6 +69,7 @@ function UsageMsg {
       printf '\t%-4s%s\n' '-r' 'Label to apply to root-partition if not using LVM (default: root_disk)'
       printf '\t%-4s%s\n' '-v' 'Name assigned to root volume-group (default: VolGroup00)'
       echo "  GNU long options:"
+      printf '\t%-20s%s\n' '--bootlabel' 'See "-b" short-option'
       printf '\t%-20s%s\n' '--boot-size' 'See "-B" short-option'
       printf '\t%-20s%s\n' '--disk' 'See "-d" short-option'
       printf '\t%-20s%s\n' '--fstype' 'See "-f" short-option'
@@ -118,7 +121,25 @@ function CarveLVM {
       mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
       set 1 bios_grub on \
       set 2 lvm || \
-     err_exit "Failed laying down new partition-table"
+         err_exit "Failed laying down new partition-table"
+
+
+   # Gather info to diagnose seeming /boot race condition
+   if [[ $(grep -q "${BOOTLABEL}" /proc/mounts)$? -eq 0 ]]
+   then
+     tail -n 100 /var/log/messages
+     sleep 3
+   fi
+
+   # Stop/umount boot device, in case parted/udev/systemd managed to remount it
+   # again.
+   systemctl stop boot.mount || true
+
+   # Create /boot filesystem
+   mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${BOOTLABEL}" \
+     "${CHROOTDEV}${PARTPRE}1" || \
+         err_exit "Failure creating filesystem - /boot"
+
 
    ## Create LVM objects
 
@@ -179,6 +200,24 @@ function CarveLVM {
       (( ITER+=1 ))
    done
 
+   if [[ ${FSTYPE} == ext[34] ]]
+   then
+      if [[ $( e2label "${CHROOTDEV}${PARTPRE}1" ) != "${BOOTLABEL}" ]]
+      then
+         e2label "${CHROOTDEV}${PARTPRE}1" "${BOOTLABEL}" || \
+            err_exit "Failed to apply desired label to ${CHROOTDEV}${PARTPRE}1"
+      fi
+   elif [[ ${FSTYPE} == xfs ]]
+   then
+      if [[ $( xfs_admin -l "${CHROOTDEV}${PARTPRE}1"  | sed -e 's/"$//' -e 's/^.*"//' ) != "${BOOTLABEL}" ]]
+      then
+         xfs_admin -L "${CHROOTDEV}${PARTPRE}1" "${BOOTLABEL}" || \
+            err_exit "Failed to apply desired label to ${CHROOTDEV}${PARTPRE}1"
+      fi
+   else
+      err_exit "Unrecognized fstype [${FSTYPE}] specified. Aborting... "
+   fi
+
 }
 
 # Partition with no LVM
@@ -197,6 +236,11 @@ function CarveBare {
      err_exit "Failed laying down new partition-table"
 
    # Create FS on partitions
+   err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}1..." NONE
+   mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${BOOTLABEL}" \
+      "${CHROOTDEV}${PARTPRE:-}1" || \
+     err_exit "Failed creating filesystem"
+
    err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}2..." NONE
    mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" \
       "${CHROOTDEV}${PARTPRE:-}2" || \
@@ -229,6 +273,19 @@ do
                   ;;
                *)
                   BOOTDEVSZ=${2}
+                  shift 2;
+                  ;;
+            esac
+            ;;
+      -b|--bootlabel)
+            case "$2" in
+               "")
+                  err_exit "Error: option required but not specified"
+                  shift 2;
+                  exit 1
+                  ;;
+               *)
+                  BOOTLABEL=${2}
                   shift 2;
                   ;;
             esac
@@ -340,8 +397,13 @@ else
    PARTPRE=""
 fi
 
+# Ensure BOOTLABEL has been specified
+if [[ -z ${BOOTLABEL+xxx} ]]
+then
+   LogBrk 1 "Cannot continue without 'bootlabel' being specified. Aborting..."
+
 # Determine how we're formatting the disk
-if [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
+elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
 then
    CarveLVM
 elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
