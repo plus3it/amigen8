@@ -164,7 +164,7 @@ function ConfigureCloudInit {
    else
       # Ensure passwords *can* be used with SSH
       err_exit "Allow password logins to SSH..." NONE
-      sed -i -e '/^ssh_pwauth/s/0$/1/' "${CLOUDCFG}" || \
+      sed -i -e '/^ssh_pwauth/s/\(false\|0\)$/true/' "${CLOUDCFG}" || \
         err_exit "Failed allowing password logins"
 
       # Delete current "system_info:" block
