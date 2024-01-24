@@ -170,6 +170,10 @@ function InstallCLIv2 {
       err_exit "AWS CLI v2 not requested for install. Skipping..." NONE
    elif [[ ${CLIV2SOURCE} == http[s]://*zip ]]
    then
+
+      # Make sure Python3 is present
+      EnsurePy3
+      
       err_exit "Fetching ${CLIV2SOURCE}..." NONE
       curl -sL "${CLIV2SOURCE}" -o "${CHROOTMNT}${TMPDIR}/awscli-exe.zip" || \
         err_exit "Failed fetching ${CLIV2SOURCE}"
