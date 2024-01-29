@@ -5,10 +5,13 @@ set -eu -o pipefail
 #
 #################################################################
 PROGNAME=$(basename "$0")
-BOOTDEVSZ="${BOOTDEVSZ:-500m}"
+BOOTDEVSZ="${BOOTDEVSZ:-500}"
+UEFIDEVSZ="${UEFIDEVSZ:-256}"
 CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
+LABEL_BOOT="${LABEL_BOOT:-boot_disk}"
+LABEL_UEFI="${LABEL_UEFI:-UEFI_DISK}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -114,8 +117,8 @@ function CarveLVM_Standard {
    # Lay down the base partitions
    err_exit "Laying down new partition-table..." NONE
    parted -s "${CHROOTDEV}" -- mktable gpt \
-      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
-      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
+      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}m" \
+      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}m" 100% \
       set 1 bios_grub on \
       set 2 lvm || \
      err_exit "Failed laying down new partition-table"
@@ -300,8 +303,8 @@ function CarveBare_Standard {
    # Lay down the base partitions
    err_exit "Laying down new partition-table..." NONE
    parted -s "${CHROOTDEV}" -- mklabel gpt \
-      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}" \
-      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}" 100% \
+      mkpart primary "${FSTYPE}" 2048s "${BOOTDEVSZ}m" \
+      mkpart primary "${FSTYPE}" "${BOOTDEVSZ}m" 100% \
       set 1 bios_grub on || \
      err_exit "Failed laying down new partition-table"
 
@@ -358,8 +361,8 @@ function SetupBootParts_Efi {
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
-  -o b:B:d:f:hp:r:v: \
-  --long bootlabel:,boot-size:,disk:,fstype:,help,partition-string:,rootlabel:,vgname: \
+  -o b:B:d:f:hl:L:p:r:U:v: \
+  --long bootlabel:,boot-size:,disk:,fstype:,help,label-boot:,label-uefi:,partition-string:,rootlabel:,uefi-size:,vgname: \
   -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -380,6 +383,12 @@ do
                *)
                   BOOTDEVSZ=${2}
                   shift 2;
+
+                  # Strip off ending letters
+                  if [[ ${BOOTDEVSZ} == *[bmgt] ]]
+                  then
+                    BOOTDEVSZ=${BOOTDEVSZ%?}
+                  fi
                   ;;
             esac
             ;;
@@ -423,6 +432,32 @@ do
       -h|--help)
             UsageMsg 0
             ;;
+      -l|--label-boot)
+        case "$2" in
+          "")
+            err_exit "Error: option required but not specified"
+            shift 2;
+            exit 1
+            ;;
+          *)
+            LABEL_BOOT=${2}
+            shift 2;
+            ;;
+        esac
+        ;;
+      -L|--label-uefi)
+        case "$2" in
+          "")
+            err_exit "Error: option required but not specified"
+            shift 2;
+            exit 1
+            ;;
+          *)
+            LABEL_UEFI=${2}
+            shift 2;
+            ;;
+        esac
+        ;;
       -p|--partition-string)
             case "$2" in
                "")
@@ -449,6 +484,19 @@ do
                   ;;
             esac
             ;;
+      -U|--uefi-size)
+        case "$2" in
+          "")
+            err_exit "Error: option required but not specified"
+            shift 2;
+            exit 1
+            ;;
+          *)
+            UEFIDEVSZ=${2}
+            shift 2;
+            ;;
+        esac
+        ;;
       -v|--vgname)
             case "$2" in
                "")
