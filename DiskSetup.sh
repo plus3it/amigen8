@@ -181,6 +181,115 @@ function CarveLVM_Standard {
 
 }
 
+# Partition as LVM (with EFI)
+function CarveLVM_Efi {
+  local ITER
+  local MOUNTPT
+  local PARTITIONARRAY
+  local PARTITIONSTR
+  local VOLFLAG
+  local VOLNAME
+  local VOLSIZE
+
+  # Whether to use flag-passed partition-string or default values
+  if [ -z ${GEOMETRYSTRING+x} ]
+  then
+    # This is fugly but might(??) be easier for others to follow/update
+    PARTITIONSTR="/:rootVol:4"
+    PARTITIONSTR+=",swap:swapVol:2"
+    PARTITIONSTR+=",/home:homeVol:1"
+    PARTITIONSTR+=",/var:varVol:2"
+    PARTITIONSTR+=",/var/tmp:varTmpVol:2"
+    PARTITIONSTR+=",/var/log:logVol:2"
+    PARTITIONSTR+=",/var/log/audit:auditVol:100%FREE"
+  else
+    PARTITIONSTR="${GEOMETRYSTRING}"
+  fi
+
+  # Convert ${PARTITIONSTR} to iterable array
+  IFS=',' read -r -a PARTITIONARRAY <<< "${PARTITIONSTR}"
+
+  # Clear the MBR and partition table
+  err_exit "Clearing existing partition-tables..." NONE
+  dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1 || \
+    err_exit "Failed clearing existing partition-tables"
+
+  # Lay down the base partitions
+  err_exit "Laying down new partition-table..." NONE
+  parted -s "${CHROOTDEV}" -- mktable gpt \
+    mkpart primary "${FSTYPE}" 1049k 2m \
+    mkpart primary fat16 4096s $(( 2 + UEFIDEVSZ ))m \
+    mkpart primary xfs $((
+      2 + UEFIDEVSZ ))m $(( ( 2 + UEFIDEVSZ ) + BOOTDEVSZ
+    ))m \
+    mkpart primary xfs $(( ( 2 + UEFIDEVSZ ) + BOOTDEVSZ ))m 100% \
+    set 1 bios_grub on \
+    set 2 esp on \
+    set 3 bls_boot on \
+    set 4 lvm on || \
+      err_exit "Failed laying down new partition-table"
+
+  ## Create LVM objects
+
+  # Let's only attempt this if we're a secondary EBS
+  if [[ ${CHROOTDEV} == /dev/xvda ]] || [[ ${CHROOTDEV} == /dev/nvme0n1 ]]
+  then
+    err_exit "Skipping explicit pvcreate opertion... " NONE
+  else
+    err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE:-}4..." NONE
+    pvcreate "${CHROOTDEV}${PARTPRE:-}4" || \
+      err_exit "PV creation failed. Aborting!"
+  fi
+
+  # Create root VolumeGroup
+  err_exit "Creating LVM2 volume-group ${VGNAME}..." NONE
+  vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE:-}4" || \
+    err_exit "VG creation failed. Aborting!"
+
+  # Create LVM2 volume-objects by iterating ${PARTITIONARRAY}
+  ITER=0
+  while [[ ${ITER} -lt ${#PARTITIONARRAY[*]} ]]
+  do
+    MOUNTPT="$( cut -d ':' -f 1 <<< "${PARTITIONARRAY[${ITER}]}")"
+    VOLNAME="$( cut -d ':' -f 2 <<< "${PARTITIONARRAY[${ITER}]}")"
+    VOLSIZE="$( cut -d ':' -f 3 <<< "${PARTITIONARRAY[${ITER}]}")"
+
+    # Create LVs
+    if [[ ${VOLSIZE} =~ FREE ]]
+    then
+      # Make sure 'FREE' is given as last list-element
+      if [[ $(( ITER += 1 )) -eq ${#PARTITIONARRAY[*]} ]]
+      then
+        VOLFLAG="-l"
+        VOLSIZE="100%FREE"
+      else
+        echo "Using 'FREE' before final list-element. Aborting..."
+        kill -s TERM " ${TOP_PID}"
+      fi
+    else
+      VOLFLAG="-L"
+      VOLSIZE+="g"
+    fi
+    lvcreate --yes -W y "${VOLFLAG}" "${VOLSIZE}" -n "${VOLNAME}" "${VGNAME}" || \
+      err_exit "Failure creating LVM2 volume '${VOLNAME}'"
+
+    # Create FSes on LVs
+    if [[ ${MOUNTPT} == swap ]]
+    then
+      err_exit "Creating swap filesystem..." NONE
+      mkswap "/dev/${VGNAME}/${VOLNAME}" || \
+        err_exit "Failed creating swap filesystem..."
+    else
+      err_exit "Creating filesystem for ${MOUNTPT}..." NONE
+      mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" "/dev/${VGNAME}/${VOLNAME}" || \
+        err_exit "Failure creating filesystem for '${MOUNTPT}'"
+    fi
+
+    (( ITER+=1 ))
+  done
+
+}
+
 # Partition with no LVM (no EFI)
 function CarveBare_Standard {
    # Clear the MBR and partition table
@@ -203,6 +312,47 @@ function CarveBare_Standard {
      err_exit "Failed creating filesystem"
 }
 
+# Partition with no LVM (with EFI)
+function CarveBare_Efi {
+  # Clear the MBR and partition table
+  err_exit "Clearing existing partition-tables..." NONE
+  dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1 || \
+    err_exit "Failed clearing existing partition-tables"
+
+  # Lay down the base partitions
+  err_exit "Laying down new partition-table..." NONE
+  parted -s "${CHROOTDEV}" -- mklabel gpt \
+    mkpart primary "${FSTYPE}" 1049k 2m \
+    mkpart primary fat16 4096s $(( 2 + UEFIDEVSZ ))m \
+    mkpart primary xfs $((
+      2 + UEFIDEVSZ ))m $(( ( 2 + UEFIDEVSZ ) + BOOTDEVSZ
+    ))m \
+    mkpart primary xfs $(( ( 2 + UEFIDEVSZ ) + BOOTDEVSZ ))m 100% \
+    set 1 bios_grub on \
+    set 2 esp on \
+    set 3 bls_boot on || \
+    err_exit "Failed laying down new partition-table"
+
+  # Create FS on partitions
+  err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}4..." NONE
+  mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${ROOTLABEL}" \
+    "${CHROOTDEV}${PARTPRE:-}4" || \
+    err_exit "Failed creating filesystem"
+}
+
+function SetupBootParts_Efi {
+
+  # Make filesystem for /boot/efi
+  err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}2..." NONE
+  mkfs -t vfat -n "${LABEL_UEFI}" "${CHROOTDEV}${PARTPRE:-}2" || \
+    err_exit "Failed creating filesystem"
+
+  # Make filesystem for /boot
+  err_exit "Creating filesystem on ${CHROOTDEV}${PARTPRE:-}3..." NONE
+  mkfs -t "${FSTYPE}" "${MKFSFORCEOPT}" -L "${LABEL_BOOT}" \
+    "${CHROOTDEV}${PARTPRE:-}3" || \
+    err_exit "Failed creating filesystem"
+}
 
 ######################
 ## Main program-flow
@@ -341,15 +491,20 @@ else
 fi
 
 # Determine how we're formatting the disk
-if [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
+if [[ -d /sys/firmware/efi ]]
 then
-   CarveLVM_Standard
-elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
-then
-   CarveBare_Standard
-elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
-then
-   err_exit "Failed to specifiy a partitioning-method. Aborting"
+  err_exit "Source image is EFI (NOT SUPPORTED): exiting"
 else
-   err_exit "The '-r'/'--rootlabel' and '-v'/'--vgname' flag-options are mutually-exclusive. Exiting." 0
+  if [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
+  then
+     CarveLVM_Standard
+  elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+  then
+     CarveBare_Standard
+  elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+  then
+     err_exit "Failed to specifiy a partitioning-method. Aborting"
+  else
+     err_exit "The '-r'/'--rootlabel' and '-v'/'--vgname' flag-options are mutually-exclusive. Exiting." 0
+  fi
 fi
