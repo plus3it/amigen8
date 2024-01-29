@@ -78,8 +78,8 @@ function UsageMsg {
    exit "${SCRIPTEXIT}"
 }
 
-# Partition as LVM
-function CarveLVM {
+# Partition as LVM (no EFI)
+function CarveLVM_Standard {
    local ITER
    local MOUNTPT
    local PARTITIONARRAY
@@ -181,8 +181,8 @@ function CarveLVM {
 
 }
 
-# Partition with no LVM
-function CarveBare {
+# Partition with no LVM (no EFI)
+function CarveBare_Standard {
    # Clear the MBR and partition table
    err_exit "Clearing existing partition-tables..." NONE
    dd if=/dev/zero of="${CHROOTDEV}" bs=512 count=1000 > /dev/null 2>&1 || \
@@ -343,10 +343,10 @@ fi
 # Determine how we're formatting the disk
 if [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
 then
-   CarveLVM
+   CarveLVM_Standard
 elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
-   CarveBare
+   CarveBare_Standard
 elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
 then
    err_exit "Failed to specifiy a partitioning-method. Aborting"
