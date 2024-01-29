@@ -543,13 +543,13 @@ if [[ -d /sys/firmware/efi ]]
 then
   err_exit "Source image is EFI (NOT SUPPORTED): exiting"
 else
-  if [[ -z ${ROOTLABEL+xxx} ]] && [[ -n ${VGNAME+xxx} ]]
+  if [[ -z ${ROOTLABEL} ]] && [[ -n ${VGNAME} ]]
   then
      CarveLVM_Standard
-  elif [[ -n ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+  elif [[ -n ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
   then
      CarveBare_Standard
-  elif [[ -z ${ROOTLABEL+xxx} ]] && [[ -z ${VGNAME+xxx} ]]
+  elif [[ -z ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
   then
      err_exit "Failed to specifiy a partitioning-method. Aborting"
   else
