@@ -155,6 +155,28 @@ function DoLvmMounts {
 
 }
 
+# mount /boot and /boot/efi partitions
+function MountBootFSes {
+
+  # Create /boot mountpoint as needed
+  if [[ ! -d "${CHROOTMNT}/boot" ]]
+  then
+    mkdir "${CHROOTMNT}/boot"
+  fi
+
+  # Mount BIOS-boot partition
+  mount -t "${FSTYPE}" "${CHROOTDEV}${PARTPRE}3" "${CHROOTMNT}/boot"
+
+  # Create /boot/efi mountpoint as needed
+  if [[ ! -d "${CHROOTMNT}/boot/efi" ]]
+  then
+    mkdir "${CHROOTMNT}/boot/efi"
+  fi
+
+  # Mount UEFI-boot partition
+  mount -t vfat "${CHROOTDEV}${PARTPRE}2" "${CHROOTMNT}/boot/efi"
+}
+
 # Create block/character-special files
 function PrepSpecialDevs {
 
@@ -369,6 +391,9 @@ then
 else
    DoLvmMounts
 fi
+
+# Mount BIOS and UEFI boot-devices
+MountBootFSes
 
 # Make block/character-special files
 PrepSpecialDevs
