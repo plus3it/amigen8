@@ -232,16 +232,6 @@ function CarveLVM_Efi {
 
   ## Create LVM objects
 
-  # Let's only attempt this if we're a secondary EBS
-  if [[ ${CHROOTDEV} == /dev/xvda ]] || [[ ${CHROOTDEV} == /dev/nvme0n1 ]]
-  then
-    err_exit "Skipping explicit pvcreate opertion... " NONE
-  else
-    err_exit "Creating LVM2 PV ${CHROOTDEV}${PARTPRE:-}4..." NONE
-    pvcreate "${CHROOTDEV}${PARTPRE:-}4" || \
-      err_exit "PV creation failed. Aborting!"
-  fi
-
   # Create root VolumeGroup
   err_exit "Creating LVM2 volume-group ${VGNAME}..." NONE
   vgcreate -y "${VGNAME}" "${CHROOTDEV}${PARTPRE:-}4" || \
