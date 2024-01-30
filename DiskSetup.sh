@@ -5,8 +5,8 @@ set -eu -o pipefail
 #
 #################################################################
 PROGNAME=$(basename "$0")
-BOOTDEVSZ="${BOOTDEVSZ:-500}"
-UEFIDEVSZ="${UEFIDEVSZ:-256}"
+BOOTDEVSZ="${BOOTDEVSZ:-400}"
+UEFIDEVSZ="${UEFIDEVSZ:-100}"
 CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
 FSTYPE="${FSTYPE:-xfs}"
