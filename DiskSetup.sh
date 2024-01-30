@@ -538,13 +538,13 @@ fi
 # Determine how we're formatting the disk
 if [[ -d /sys/firmware/efi ]]
 then
-  if [[ -z ${ROOTLABEL} ]] && [[ -n ${VGNAME} ]]
+  if [[ -z ${ROOTLABEL:-} ]] && [[ -n ${VGNAME:-} ]]
   then
     CarveLVM_Efi
-  elif [[ -n ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  elif [[ -n ${ROOTLABEL:-} ]] && [[ -z ${VGNAME:-} ]]
   then
     CarveBare_Efi
-  elif [[ -z ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  elif [[ -z ${ROOTLABEL:-} ]] && [[ -z ${VGNAME:-} ]]
   then
      err_exit "Failed to specifiy a partitioning-method. Aborting"
   else
@@ -553,13 +553,13 @@ then
 
   SetupBootParts_Efi
 else
-  if [[ -z ${ROOTLABEL} ]] && [[ -n ${VGNAME} ]]
+  if [[ -z ${ROOTLABEL:-} ]] && [[ -n ${VGNAME:-} ]]
   then
      CarveLVM_Standard
-  elif [[ -n ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  elif [[ -n ${ROOTLABEL:-} ]] && [[ -z ${VGNAME:-} ]]
   then
      CarveBare_Standard
-  elif [[ -z ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  elif [[ -z ${ROOTLABEL:-} ]] && [[ -z ${VGNAME:-} ]]
   then
      err_exit "Failed to specifiy a partitioning-method. Aborting"
   else
