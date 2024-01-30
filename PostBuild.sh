@@ -179,7 +179,7 @@ function CreateFstab {
        sed 's/ /:/g'
      )"
      UEFI_LABEL="$(
-       fatlabel "${UEFI_PART//:*/}"
+       fatlabel "${UEFI_PART//:*/}" | tail -1
      )"
      printf 'LABEL=%s\t/boot/efi\tvfat\tdefaults,rw\t0 0\n' "${UEFI_LABEL}" >> \
        "${CHROOTMNT}/etc/fstab" || \
