@@ -347,8 +347,14 @@ fi
 ValidateTgtMnt
 
 ## Mount partition(s) from second slice
-# Locate LVM2 volume-group name
-read -r VGNAME <<< "$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}2" )"
+if [[ -d /sys/firmware/efi ]]
+then
+  # Locate LVM2 volume-group name (EFI)
+  read -r VGNAME <<< "$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}4" )"
+else
+  # Locate LVM2 volume-group name (no EFI)
+  read -r VGNAME <<< "$( pvs --noheading -o vg_name "${CHROOTDEV}${PARTPRE}2" )"
+fi
 
 # Do partition-mount if 'no-lvm' explicitly requested
 if [[ ${NOLVM:-} == "true" ]]
