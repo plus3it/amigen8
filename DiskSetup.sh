@@ -538,7 +538,20 @@ fi
 # Determine how we're formatting the disk
 if [[ -d /sys/firmware/efi ]]
 then
-  err_exit "Source image is EFI (NOT SUPPORTED): exiting"
+  if [[ -z ${ROOTLABEL} ]] && [[ -n ${VGNAME} ]]
+  then
+    CarveLVM_Efi
+  elif [[ -n ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  then
+    CarveBare_Efi
+  elif [[ -z ${ROOTLABEL} ]] && [[ -z ${VGNAME} ]]
+  then
+     err_exit "Failed to specifiy a partitioning-method. Aborting"
+  else
+     err_exit "The '-r'/'--rootlabel' and '-v'/'--vgname' flag-options are mutually-exclusive. Exiting." 0
+  fi
+
+  SetupBootParts_Efi
 else
   if [[ -z ${ROOTLABEL} ]] && [[ -n ${VGNAME} ]]
   then
