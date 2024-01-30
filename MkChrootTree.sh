@@ -392,8 +392,11 @@ else
    DoLvmMounts
 fi
 
-# Mount BIOS and UEFI boot-devices
-MountBootFSes
+# Mount BIOS and UEFI boot-devices as needed
+if [[ -d /sys/firmware/efi ]]
+then
+  MountBootFSes
+fi
 
 # Make block/character-special files
 PrepSpecialDevs
