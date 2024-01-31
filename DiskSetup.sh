@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 set -eu -o pipefail
 #
 # Script to automate basic setup of CHROOT device
@@ -235,7 +235,8 @@ function CarveLVM_Efi {
     ))m \
     mkpart primary xfs $(( ( 2 + UEFIDEVSZ ) + BOOTDEVSZ ))m 100% \
     set 1 bios_grub on \
-    set 2 esp on || \
+    set 2 esp on \
+    set 4 lvm on || \
       err_exit "Failed laying down new partition-table"
 
   ## Create LVM objects
