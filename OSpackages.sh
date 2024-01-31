@@ -8,8 +8,10 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 GRUBPKGS_X86=(
+      efibootmgr
       grub2-efi-x64
       grub2-efi-x64-modules
+      grub2-pc
       grub2-pc-modules
       grub2-tools
       grub2-tools-efi
