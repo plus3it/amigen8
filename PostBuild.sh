@@ -342,6 +342,7 @@ function ClipPartition {
 function GrubSetup {
    local CHROOTDEV
    local CHROOTKRN
+   local CHROOT_OS_NAME
    local GRUBCMDLINE
    local ROOTTOK
    local VGCHECK
@@ -405,6 +406,19 @@ function GrubSetup {
 
    fi
 
+   # Get name of OS installed into chroot-env
+   CHROOT_OS_NAME="$(
+     chroot "${CHROOTMNT}" \
+       awk -F '=' '/^REDHAT_BUGZILLA_PRODUCT=/{ print $2 }' \
+         /etc/os-release | \
+     sed 's/"//g'
+   )"
+
+   if [[ -z ${CHROOT_OS_NAME:-} ]]
+   then
+     CHROOT_OS_NAME="Generic Linux"
+   fi
+
    # Assemble string for GRUB_CMDLINE_LINUX value
    GRUBCMDLINE="${ROOTTOK} "
    GRUBCMDLINE+="crashkernel=auto "
@@ -422,7 +436,7 @@ function GrubSetup {
    err_exit "Writing default/grub file..." NONE
    (
       printf 'GRUB_TIMEOUT=%s\n' "${GRUBTMOUT}"
-      printf 'GRUB_DISTRIBUTOR="CentOS Linux"\n'
+      printf 'GRUB_DISTRIBUTOR="%s"\n' "${CHROOT_OS_NAME}"
       printf 'GRUB_DEFAULT=saved\n'
       printf 'GRUB_DISABLE_SUBMENU=true\n'
       printf 'GRUB_TERMINAL="serial console"\n'
@@ -435,8 +449,19 @@ function GrubSetup {
      err_exit "Failed writing default/grub file"
 
    # Install GRUB2 bootloader when EFI not active
-   if [[ ! -d /sys/firmware/efi ]]
+   if [[ -d /sys/firmware/efi ]]
    then
+     # Install EFI boot-manager content
+     chroot "${CHROOTMNT}" bash -c '
+       /sbin/efibootmgr \
+         -c \
+         -d /dev/nvme1n1 \
+         -p 1 \
+         -l \\EFI\\redhat\\shimx64.efi \
+         -L '"${CHROOT_OS_NAME}"'
+     '
+   else
+     # Install legacy GRUB2 boot-content
      chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
    fi
 
@@ -458,6 +483,7 @@ function GrubSetup {
          "${CHROOTKRN}" || \
         err_exit "Failed installing initramfs"
    fi
+
 
 
 }
