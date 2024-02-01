@@ -474,6 +474,13 @@ function GrubSetup {
       > ${GRUB_CFG}" || \
      err_exit "Failed to install GRUB config-file"
 
+   # Fix GRUB-config link as necessary
+   if [[ -L /etc/grub2.cfg ]] && [[ ! -e $( readlink -f /etc/grub2.cfg ) ]]
+   then
+     rm /etc/grub2.cfg
+     ln -s "${GRUB_CFG}" /etc/grub2.cfg
+   fi
+
    # Make intramfs in chroot-dev
    if [[ ${FIPSDISABLE} != "true" ]]
    then
