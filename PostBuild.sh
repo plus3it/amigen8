@@ -344,6 +344,7 @@ function GrubSetup {
    local CHROOTKRN
    local CHROOT_OS_NAME
    local GRUBCMDLINE
+   local GRUB_CFG
    local ROOTTOK
    local VGCHECK
 
@@ -460,15 +461,17 @@ function GrubSetup {
          -l \\EFI\\redhat\\shimx64.efi \
          -L '"${CHROOT_OS_NAME}"'
      '
+     GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
    else
      # Install legacy GRUB2 boot-content
      chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+     GRUB_CFG="/boot/grub2/grub.cfg"
    fi
 
    # Install GRUB config-file
    err_exit "Installing GRUB config-file..." NONE
    chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-mkconfig \
-      > /boot/grub2/grub.cfg" || \
+      > ${GRUB_CFG}" || \
      err_exit "Failed to install GRUB config-file"
 
    # Make intramfs in chroot-dev
