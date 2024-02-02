@@ -343,6 +343,7 @@ function GrubSetup {
    local CHROOTDEV
    local CHROOTKRN
    local CHROOT_OS_NAME
+   local EFI_DEV
    local GRUBCMDLINE
    local GRUB_CFG
    local ROOTTOK
@@ -452,11 +453,20 @@ function GrubSetup {
    # Install GRUB2 bootloader when EFI not active
    if [[ -d /sys/firmware/efi ]]
    then
+     # Get EFI partition
+     EFI_DEV="$( grep "${CHROOTMNT}/boot/efi" /proc/mounts | sed 's/\s\s*.*//' )"
+
+     # Calculate EFI partition's base-device
+     if [[ ${EFI_DEV} == "/dev/nvme"* ]]
+     then
+       EFI_DEV="${EFI_DEV//p*/}"
+     fi
+
      # Install EFI boot-manager content
      chroot "${CHROOTMNT}" bash -c '
        /sbin/efibootmgr \
          -c \
-         -d /dev/nvme1n1 \
+         -d '"${EFI_DEV}"' \
          -p 1 \
          -l \\EFI\\redhat\\shimx64.efi \
          -L '"${CHROOT_OS_NAME}"'
