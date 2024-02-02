@@ -409,6 +409,7 @@ function GrubSetup {
    fi
 
    # Get name of OS installed into chroot-env
+   # shellcheck disable=SC2016
    CHROOT_OS_NAME="$(
      chroot "${CHROOTMNT}" \
        awk -F '=' '/^REDHAT_BUGZILLA_PRODUCT=/{ print $2 }' \
@@ -463,6 +464,7 @@ function GrubSetup {
      fi
 
      # Install EFI boot-manager content
+     # shellcheck disable=SC1004
      chroot "${CHROOTMNT}" bash -c '
        /sbin/efibootmgr \
          -c \
