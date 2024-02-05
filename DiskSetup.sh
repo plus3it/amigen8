@@ -54,7 +54,7 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-b' 'Size of /boot partition (default: 500MiB)'
+      printf '\t%-4s%s\n' '-b' 'Size of /boot partition (default: 400MiB)'
       printf '\t%-4s%s\n' '-B' 'Boot-block size (default: 16MiB)'
       printf '\t%-4s%s\n' '-d' 'Base dev-node used for build-device'
       printf '\t%-4s%s\n' '-f' 'Filesystem-type used for root filesystems (default: xfs)'
