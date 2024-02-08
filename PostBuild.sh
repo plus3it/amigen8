@@ -138,6 +138,55 @@ function CreateFstab {
       fi
    done
 
+   # Add EFI-supporting partitions as necessary
+   if [[ -d /sys/firmware/efi ]]
+   then
+     # Add /boot partition to fstab
+     BOOT_PART="$(
+       grep "${CHROOTMNT}/boot " /proc/mounts | \
+       sed 's/ /:/g'
+     )"
+     if [[ ${BOOT_PART} =~ ":xfs:" ]]
+     then
+       err_exit "Adding XFS-formatted /boot filesystem to fstab" NONE
+       BOOT_LABEL="$(
+         xfs_admin -l "${BOOT_PART//:*/}" | \
+         sed -e 's/"$//' -e 's/^.*"//'
+       )"
+       printf 'LABEL=%s\t/boot\txfs\tdefaults,rw\t0 0\n' "${BOOT_LABEL}" >> \
+         "${CHROOTMNT}/etc/fstab" || \
+         err_exit "Failed adding '/boot' to /etc/fstab"
+     elif [[ ${BOOT_PART} =~ ":ext"[2-4]":" ]]
+     then
+       err_exit "Adding EXTn-formatted /boot filesystem to fstab" NONE
+       BOOT_LABEL="$(
+         e2label "${BOOT_PART//:*/}"
+       )"
+       # shellcheck disable=SC2001
+       BOOT_FSTYP="$(
+         sed 's/\s\s*/:/g' <<< "${BOOT_PART}" | \
+         cut -d ':' -f 3
+       )"
+       printf 'LABEL=%s\t/boot\t%s\tdefaults,rw\t0 0\n' \
+         "${BOOT_LABEL}" "${BOOT_FSTYP}" >> "${CHROOTMNT}/etc/fstab" || \
+         err_exit "Failed adding '/boot' to /etc/fstab"
+     fi
+
+     # Add /boot/efi partition to fstab
+     err_exit "Adding /boot/efi filesystem to fstab" NONE
+     UEFI_PART="$(
+       grep "${CHROOTMNT}/boot/efi " /proc/mounts | \
+       sed 's/ /:/g'
+     )"
+     UEFI_LABEL="$(
+       fatlabel "${UEFI_PART//:*/}" | tail -1
+     )"
+     printf 'LABEL=%s\t/boot/efi\tvfat\tdefaults,rw\t0 0\n' "${UEFI_LABEL}" >> \
+       "${CHROOTMNT}/etc/fstab" || \
+       err_exit "Failed adding '/boot/efi' to /etc/fstab"
+   fi
+
+
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
    then
@@ -293,7 +342,10 @@ function ClipPartition {
 function GrubSetup {
    local CHROOTDEV
    local CHROOTKRN
+   local CHROOT_OS_NAME
+   local EFI_DEV
    local GRUBCMDLINE
+   local GRUB_CFG
    local ROOTTOK
    local VGCHECK
 
@@ -356,6 +408,20 @@ function GrubSetup {
 
    fi
 
+   # Get name of OS installed into chroot-env
+   # shellcheck disable=SC2016
+   CHROOT_OS_NAME="$(
+     chroot "${CHROOTMNT}" \
+       awk -F '=' '/^REDHAT_BUGZILLA_PRODUCT=/{ print $2 }' \
+         /etc/os-release | \
+     sed 's/"//g'
+   )"
+
+   if [[ -z ${CHROOT_OS_NAME:-} ]]
+   then
+     CHROOT_OS_NAME="Generic Linux"
+   fi
+
    # Assemble string for GRUB_CMDLINE_LINUX value
    GRUBCMDLINE="${ROOTTOK} "
    GRUBCMDLINE+="crashkernel=auto "
@@ -373,7 +439,7 @@ function GrubSetup {
    err_exit "Writing default/grub file..." NONE
    (
       printf 'GRUB_TIMEOUT=%s\n' "${GRUBTMOUT}"
-      printf 'GRUB_DISTRIBUTOR="CentOS Linux"\n'
+      printf 'GRUB_DISTRIBUTOR="%s"\n' "${CHROOT_OS_NAME}"
       printf 'GRUB_DEFAULT=saved\n'
       printf 'GRUB_DISABLE_SUBMENU=true\n'
       printf 'GRUB_TERMINAL="serial console"\n'
@@ -385,14 +451,47 @@ function GrubSetup {
    ) > "${CHROOTMNT}/etc/default/grub" || \
      err_exit "Failed writing default/grub file"
 
-   # Install GRUB2 bootloader
-   chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+   # Install GRUB2 bootloader when EFI not active
+   if [[ -d /sys/firmware/efi ]]
+   then
+     # Get EFI partition
+     EFI_DEV="$( grep "${CHROOTMNT}/boot/efi" /proc/mounts | sed 's/\s\s*.*//' )"
+
+     # Calculate EFI partition's base-device
+     if [[ ${EFI_DEV} == "/dev/nvme"* ]]
+     then
+       EFI_DEV="${EFI_DEV//p*/}"
+     fi
+
+     # Install EFI boot-manager content
+     # shellcheck disable=SC1004
+     chroot "${CHROOTMNT}" bash -c '
+       /sbin/efibootmgr \
+         -c \
+         -d '"${EFI_DEV}"' \
+         -p 1 \
+         -l \\EFI\\redhat\\shimx64.efi \
+         -L '"${CHROOT_OS_NAME}"'
+     '
+     GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+   else
+     # Install legacy GRUB2 boot-content
+     chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+     GRUB_CFG="/boot/grub2/grub.cfg"
+   fi
 
    # Install GRUB config-file
    err_exit "Installing GRUB config-file..." NONE
    chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-mkconfig \
-      > /boot/grub2/grub.cfg" || \
+      > ${GRUB_CFG}" || \
      err_exit "Failed to install GRUB config-file"
+
+   # Fix GRUB-config link as necessary
+   if [[ -L /etc/grub2.cfg ]] && [[ ! -e $( readlink -f /etc/grub2.cfg ) ]]
+   then
+     rm /etc/grub2.cfg
+     ln -s "${GRUB_CFG}" /etc/grub2.cfg
+   fi
 
    # Make intramfs in chroot-dev
    if [[ ${FIPSDISABLE} != "true" ]]
@@ -406,6 +505,7 @@ function GrubSetup {
          "${CHROOTKRN}" || \
         err_exit "Failed installing initramfs"
    fi
+
 
 
 }

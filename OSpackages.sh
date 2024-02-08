@@ -7,6 +7,17 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
+GRUBPKGS_X86=(
+      efibootmgr
+      grub2-efi-x64
+      grub2-efi-x64-modules
+      grub2-pc
+      grub2-pc-modules
+      grub2-tools
+      grub2-tools-efi
+      grub2-tools-minimal
+      shim-x64
+)
 MINXTRAPKGS=(
       chrony
       cloud-init
@@ -312,7 +323,16 @@ function MainInstall {
    fi
 
    # Add extra packages to include-list (array)
-   INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" "${EXTRARPMS[@]}" )
+   INCLUDEPKGS=(
+     "${INCLUDEPKGS[@]}"
+     "${MINXTRAPKGS[@]}"
+     "${EXTRARPMS[@]}"
+   )
+
+   if [[ -d /sys/firmware/efi ]]
+   then
+     INCLUDEPKGS+=( "${GRUBPKGS_X86[@]}" )
+   fi
 
    # Remove excluded packages from include-list
    for EXCLUDE in ${EXCLUDEPKGS[*]} ${EXTRAEXCLUDE[*]}
