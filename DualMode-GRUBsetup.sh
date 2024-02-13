@@ -8,6 +8,9 @@ dnf -y reinstall grub2-pc
 [[ -e /boot/efi/EFI/redhat/grub.cfg ]] && \
   mv /boot/efi/EFI/redhat/grub.cfg /boot/grub2
 
+# Make our /boot-hosted GRUB2 grub.cfg file
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
 # Nuke grubenv file as necessary
 [[ -e /boot/grub2/grubenv ]] && rm -f /boot/grub2/grubenv
 
