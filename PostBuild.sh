@@ -514,7 +514,7 @@ function GrubSetup {
 # Set up GRUB to support both BIOS- and EFI-boot
 function GrubSetup_DualMode {
   err_exit "Installing helper-script..." NONE
-  install -bDm 0755  "$( dirname $0 )/DualMode-GRUBsetup.sh" \
+  install -bDm 0755  "$( dirname "${0}" )/DualMode-GRUBsetup.sh" \
     "${CHROOTMNT}/root" || err_exit "Failed installing helper-script"
   err_exit "SUCCESS" NONE
 
