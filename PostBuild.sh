@@ -510,6 +510,13 @@ function GrubSetup {
 
 }
 
+# Set up GRUB to support both BIOS- and EFI-boot
+function GrubSetup_DualMode {
+  install -bDm 0755  "$( dirname $0 )/DualMode-GRUBsetup.sh" "${CHROOTMNT}/root"
+
+  chroot "${CHROOTMNT}" /root/DualMode-GRUBsetup.sh
+}
+
 # Configure SELinux
 function SELsetup {
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -733,7 +740,12 @@ TimeSetup
 ConfigureCloudInit
 
 # Do GRUB2 setup tasks
-GrubSetup
+if [[ -d /sys/firmware/efi ]]
+then
+  GrubSetup_DualMode
+else
+  GrubSetup
+fi
 
 # Initialize authselect subsystem
 authselectInit
