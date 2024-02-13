@@ -747,6 +747,9 @@ else
   GrubSetup
 fi
 
+# Clean up fstab
+sed -i '/^\/dev\/.*\s\s*\/boot/d' "${CHROOTMNT}/etc/fstab"
+
 # Initialize authselect subsystem
 authselectInit
 
