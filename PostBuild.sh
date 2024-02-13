@@ -513,9 +513,20 @@ function GrubSetup {
 
 # Set up GRUB to support both BIOS- and EFI-boot
 function GrubSetup_DualMode {
-  install -bDm 0755  "$( dirname $0 )/DualMode-GRUBsetup.sh" "${CHROOTMNT}/root"
+  err_exit "Installing helper-script..." NONE
+  install -bDm 0755  "$( dirname $0 )/DualMode-GRUBsetup.sh" \
+    "${CHROOTMNT}/root" || err_exit "Failed installing helper-script"
+  err_exit "SUCCESS" NONE
 
-  chroot "${CHROOTMNT}" /root/DualMode-GRUBsetup.sh
+  err_exit "Running helper-script..." NONE
+  chroot "${CHROOTMNT}" /root/DualMode-GRUBsetup.sh || \
+    err_exit "Failed running helper-script..."
+  err_exit "SUCCESS" NONE
+
+  err_exit "Cleaning up helper-script..." NONE
+  rm "${CHROOTMNT}/root/DualMode-GRUBsetup.sh" || \
+    err_exit "Failed removing helper-script..."
+  err_exit "SUCCESS" NONE
 }
 
 # Configure SELinux
