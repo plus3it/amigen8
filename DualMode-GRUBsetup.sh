@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eo pipefail
+set -x
 
 # Re-Install RPMs as necessary
 if [[ $( rpm --quiet -q grub2-pc )$? -eq 0 ]]
@@ -44,7 +45,7 @@ then
 fi
 
 
-EFI_HOME=/boot/efi/EFI/redhat
+EFI_HOME="$( rpm -ql grub2-common | grep '/EFI/' )"
 GRUB_HOME=/boot/grub2
 
 BOOT_UUID="$( grub2-probe --target=fs_uuid "${GRUB_HOME}" )"
