@@ -22,7 +22,7 @@ fi
 # Create fresh grubenv file
 grub2-editenv /boot/grub2/grubenv create
 
-# Populate fresch grubenv file
+# Populate fresh grubenv file
 while read -r line
 do
   key="$( echo "$line" | cut -f1 -d'=' )"
