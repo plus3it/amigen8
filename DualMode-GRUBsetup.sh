@@ -5,14 +5,19 @@ set -euo pipefail
 dnf -y reinstall grub2-pc
 
 # Move /boot/efi/EFI/redhat/grub.cfg as necessary
-[[ -e /boot/efi/EFI/redhat/grub.cfg ]] && \
+if [[ -e /boot/efi/EFI/redhat/grub.cfg ]]
+then
   mv /boot/efi/EFI/redhat/grub.cfg /boot/grub2
+fi
 
 # Make our /boot-hosted GRUB2 grub.cfg file
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
 # Nuke grubenv file as necessary
-[[ -e /boot/grub2/grubenv ]] && rm -f /boot/grub2/grubenv
+if [[ -e /boot/grub2/grubenv ]]
+then
+  rm -f /boot/grub2/grubenv
+fi
 
 # Create fresh grubenv file
 grub2-editenv /boot/grub2/grubenv create
@@ -25,7 +30,10 @@ do
   grub2-editenv /boot/grub2/grubenv set "${key}"="${value}"
   done <<< "$( grub2-editenv /boot/efi/EFI/redhat/grubenv list )"
 
-[[ -e /boot/efi/EFI/redhat/grubenv ]] && rm -f /boot/efi/EFI/redhat/grubenv
+if [[ -e /boot/efi/EFI/redhat/grubenv ]]
+then
+  rm -f /boot/efi/EFI/redhat/grubenv
+fi
 
 
 EFI_HOME=/boot/efi/EFI/redhat
@@ -44,7 +52,10 @@ configfile \$prefix/grub.cfg
 EOF
 
 # Clear out stale grub2-efi.cfg file as necessary
-[[ -e /etc/grub2-efi.cfg ]] && rm -f /etc/grub2-efi.cfg
+if [[ -e /etc/grub2-efi.cfg ]]
+then
+  rm -f /etc/grub2-efi.cfg
+fi
 
 # Link the BIOS- and EFI-boot GRUB-config files
 ln -s ../boot/grub2/grub.cfg /etc/grub2-efi.cfg
