@@ -1,8 +1,13 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
 
 # Re-Install RPMs as necessary
-dnf -y reinstall grub2-pc
+if [[ $( rpm --quiet -q grub2-pc )$? -eq 0 ]]
+then
+  dnf -y reinstall grub2-pc
+else
+  dnf -y install grub2-pc
+fi
 
 # Move /boot/efi/EFI/redhat/grub.cfg as necessary
 if [[ -e /boot/efi/EFI/redhat/grub.cfg ]]
