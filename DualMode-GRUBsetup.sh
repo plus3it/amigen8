@@ -22,13 +22,16 @@ fi
 # Create fresh grubenv file
 grub2-editenv /boot/grub2/grubenv create
 
-# Populate fresh grubenv file
+# Populate fresh grubenv file:
+#   Use `grub2-editenv` command to list parm/vals already stored in the
+#   /boot/efi/EFI/redhat/grubenv and dupe them into the BIOS-boot GRUB2 env
+#   config
 while read -r line
 do
   key="$( echo "$line" | cut -f1 -d'=' )"
   value="$( echo "$line" | cut -f2- -d'=' )"
   grub2-editenv /boot/grub2/grubenv set "${key}"="${value}"
-  done <<< "$( grub2-editenv /boot/efi/EFI/redhat/grubenv list )"
+done <<< "$( grub2-editenv /boot/efi/EFI/redhat/grubenv list )"
 
 if [[ -e /boot/efi/EFI/redhat/grubenv ]]
 then
