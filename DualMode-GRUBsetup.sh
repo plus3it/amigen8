@@ -2,6 +2,9 @@
 set -eo pipefail
 set -x
 
+EFI_HOME="$( rpm -ql grub2-common | grep '/EFI/' )"
+GRUB_HOME=/boot/grub2
+
 # Re-Install RPMs as necessary
 if [[ $( rpm --quiet -q grub2-pc )$? -eq 0 ]]
 then
@@ -10,10 +13,10 @@ else
   dnf -y install grub2-pc
 fi
 
-# Move /boot/efi/EFI/redhat/grub.cfg as necessary
-if [[ -e /boot/efi/EFI/redhat/grub.cfg ]]
+# Move "${EFI_HOME}/grub.cfg" as necessary
+if [[ -e ${EFI_HOME}/grub.cfg ]]
 then
-  mv /boot/efi/EFI/redhat/grub.cfg /boot/grub2
+  mv "${EFI_HOME}/grub.cfg" /boot/grub2
 fi
 
 # Make our /boot-hosted GRUB2 grub.cfg file
@@ -30,23 +33,19 @@ grub2-editenv /boot/grub2/grubenv create
 
 # Populate fresh grubenv file:
 #   Use `grub2-editenv` command to list parm/vals already stored in the
-#   /boot/efi/EFI/redhat/grubenv and dupe them into the BIOS-boot GRUB2 env
-#   config
+#   "${EFI_HOME}/grubenv"and dupe them into the BIOS-boot GRUB2 env config
 while read -r line
 do
   key="$( echo "$line" | cut -f1 -d'=' )"
   value="$( echo "$line" | cut -f2- -d'=' )"
   grub2-editenv /boot/grub2/grubenv set "${key}"="${value}"
-done <<< "$( grub2-editenv /boot/efi/EFI/redhat/grubenv list )"
+done <<< "$( grub2-editenv "${EFI_HOME}/grubenv" list )"
 
-if [[ -e /boot/efi/EFI/redhat/grubenv ]]
+if [[ -e ${EFI_HOME}/grubenv ]]
 then
-  rm -f /boot/efi/EFI/redhat/grubenv
+  rm -f "${EFI_HOME}/grubenv"
 fi
 
-
-EFI_HOME="$( rpm -ql grub2-common | grep '/EFI/' )"
-GRUB_HOME=/boot/grub2
 
 BOOT_UUID="$( grub2-probe --target=fs_uuid "${GRUB_HOME}" )"
 GRUB_DIR="$( grub2-mkrelpath "${GRUB_HOME}" )"
