@@ -8,6 +8,7 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
+FSTYPE="${FSTYPE:-xfs}"
 GRUBTMOUT="${GRUBTMOUT:-5}"
 MAINTUSR="${MAINTUSR:-"maintuser"}"
 NOTMPFS="${NOTMPFS:-UNDEF}"
@@ -510,6 +511,24 @@ function GrubSetup {
 
 }
 
+# Set up GRUB to support both BIOS- and EFI-boot
+function GrubSetup_DualMode {
+  err_exit "Installing helper-script..." NONE
+  install -bDm 0755  "$( dirname "${0}" )/DualMode-GRUBsetup.sh" \
+    "${CHROOTMNT}/root" || err_exit "Failed installing helper-script"
+  err_exit "SUCCESS" NONE
+
+  err_exit "Running helper-script..." NONE
+  chroot "${CHROOTMNT}" /root/DualMode-GRUBsetup.sh || \
+    err_exit "Failed running helper-script..."
+  err_exit "SUCCESS" NONE
+
+  err_exit "Cleaning up helper-script..." NONE
+  rm "${CHROOTMNT}/root/DualMode-GRUBsetup.sh" || \
+    err_exit "Failed removing helper-script..."
+  err_exit "SUCCESS" NONE
+}
+
 # Configure SELinux
 function SELsetup {
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
@@ -733,7 +752,15 @@ TimeSetup
 ConfigureCloudInit
 
 # Do GRUB2 setup tasks
-GrubSetup
+if [[ -d /sys/firmware/efi ]]
+then
+  GrubSetup_DualMode
+else
+  GrubSetup
+fi
+
+# Clean up fstab
+sed -i '/^\/dev\/.*\s\s*\/boot/d' "${CHROOTMNT}/etc/fstab"
 
 # Initialize authselect subsystem
 authselectInit
