@@ -497,18 +497,13 @@ function GrubSetup {
    # Make intramfs in chroot-dev
    if [[ ${FIPSDISABLE} != "true" ]]
    then
-      err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
-        err_exit "Failed to enable FIPS mode"
+     FipsSetup
    else
       err_exit "Installing initramfs..." NONE
       chroot "${CHROOTMNT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
          "${CHROOTKRN}" || \
         err_exit "Failed installing initramfs"
    fi
-
-
-
 }
 
 # Set up GRUB to support both BIOS- and EFI-boot
@@ -527,6 +522,18 @@ function GrubSetup_DualMode {
   rm "${CHROOTMNT}/root/DualMode-GRUBsetup.sh" || \
     err_exit "Failed removing helper-script..."
   err_exit "SUCCESS" NONE
+
+  # Make intramfs in chroot-dev
+  if [[ ${FIPSDISABLE} != "true" ]]
+  then
+    FipsSetup
+  fi
+}
+
+function FipsSetup {
+  err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
+  chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
+    err_exit "Failed to enable FIPS mode"
 }
 
 # Configure SELinux
