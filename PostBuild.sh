@@ -758,12 +758,14 @@ TimeSetup
 # Configure cloud-init
 ConfigureCloudInit
 
-# Do GRUB2 setup tasks
+## Do GRUB2 setup tasks ##
+# Basic Setup
+GrubSetup
+
+# Legacy (BIOS) boot-mode setup
 if [[ -d /sys/firmware/efi ]]
 then
   GrubSetup_DualMode
-else
-  GrubSetup
 fi
 
 # Clean up fstab
