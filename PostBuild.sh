@@ -428,9 +428,11 @@ function GrubSetup {
    GRUBCMDLINE+="crashkernel=auto "
    GRUBCMDLINE+="vconsole.keymap=us "
    GRUBCMDLINE+="vconsole.font=latarcyrheb-sun16 "
-   GRUBCMDLINE+="console=tty0 "
+   GRUBCMDLINE+="console=tty1 "
    GRUBCMDLINE+="console=ttyS0,115200n8 "
+   GRUBCMDLINE+="rd.blacklist=nouveau "
    GRUBCMDLINE+="net.ifnames=0 "
+   GRUBCMDLINE+="nvme_core.io_timeout=4294967295 "
    if [[ ${FIPSDISABLE} == "true" ]]
    then
       GRUBCMDLINE+="fips=0"
@@ -443,7 +445,7 @@ function GrubSetup {
       printf 'GRUB_DISTRIBUTOR="%s"\n' "${CHROOT_OS_NAME}"
       printf 'GRUB_DEFAULT=saved\n'
       printf 'GRUB_DISABLE_SUBMENU=true\n'
-      printf 'GRUB_TERMINAL="serial console"\n'
+      printf 'GRUB_TERMINAL_OUTPUT="console"\n'
       printf 'GRUB_SERIAL_COMMAND="serial --speed=115200"\n'
       printf 'GRUB_CMDLINE_LINUX="%s"\n' "${GRUBCMDLINE}"
       printf 'GRUB_DISABLE_RECOVERY=true\n'
