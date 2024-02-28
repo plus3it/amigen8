@@ -383,7 +383,9 @@ function AzureYumPluginDirCollision {
   local AZURE_ASSET_TAG
   local YUM_PROBLEM_DIR
 
-  # The asset-tag value for dmidecode
+  # The asset-tag value for dmidecode see reference:
+  #   https://learn.microsoft.com/en-us/azure/automation/troubleshoot/update-agent-issues-linux#dmidecode-check
+  # For ID string-value
   AZURE_ASSET_TAG="7783-7084-3265-9085-8269-3286-77"
 
   # The directory that the Azure-RHUI version of yum doesn't like
