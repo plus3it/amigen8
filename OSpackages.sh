@@ -264,6 +264,9 @@ function PrepChroot {
    rpm --force --root "${CHROOTMNT}" -ivh --nodeps --nopre /tmp/*.rpm || \
      err_exit "Failed installing staged RPMs"
 
+   # Try to keep the yum RPM's reinstall from barfing on Azure
+   AzureYumPluginDirCollision
+
    # Install dependences for base RPMs
    err_exit "Installing base RPM's dependences..." NONE
    yum --disablerepo="*" --enablerepo="${OSREPOS}" \
@@ -373,6 +376,34 @@ function FetchCustomRepos {
       fi
    done
 
+}
+
+# Prevent Azure-specific failure
+function AzureYumPluginDirCollision {
+  local AZURE_ASSET_TAG
+  local YUM_PROBLEM_DIR
+
+  # The asset-tag value for dmidecode
+  AZURE_ASSET_TAG="7783-7084-3265-9085-8269-3286-77"
+
+  # The directory that the Azure-RHUI version of yum doesn't like
+  YUM_PROBLEM_DIR="/etc/yum/pluginconf.d"
+
+  # Check if dmidecode RPM is installed (return if not)
+  if [[ $( rpm -q dmidecode --quiet )$? -ne 0 ]]
+  then
+    err_exit "The dmidecode utility is not available. Cannot check virtualization-platform" NONE
+    return
+  fi
+
+  # Nuke YUM_PROBLEM_DIR if present and we're on Azure
+  if [[ $( dmidecode --string chassis-asset-tag ) == "${AZURE_ASSET_TAG}" ]] &&
+     [[ -d ${YUM_PROBLEM_DIR} ]]
+  then
+    err_exit "Deleting ${YUM_PROBLEM_DIR} on an Azure build-host..." NONE
+    rm -rf "${YUM_PROBLEM_DIR}" || err_exit "Failed deleting ${YUM_PROBLEM_DIR}. Aborting... " 1
+    err_exit "Successfully deleted /etc/yum/pluginconf.d" NONE
+  fi
 }
 
 
