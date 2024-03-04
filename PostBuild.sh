@@ -8,10 +8,12 @@ PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
 FIPSDISABLE="${FIPSDISABLE:-UNDEF}"
+FSTYPE="${FSTYPE:-xfs}"
 GRUBTMOUT="${GRUBTMOUT:-5}"
 MAINTUSR="${MAINTUSR:-"maintuser"}"
 NOTMPFS="${NOTMPFS:-UNDEF}"
 TARGTZ="${TARGTZ:-UTC}"
+SUBSCRIPTION_MANAGER="${SUBSCRIPTION_MANAGER:-disabled}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG} == "UNDEF" ]]
@@ -67,6 +69,7 @@ function UsageMsg {
       printf '\t%-20s%s\n' '--no-fips' 'See "-F" short-option'
       printf '\t%-20s%s\n' '--no-tmpfs' 'Disable /tmp as tmpfs behavior'
       printf '\t%-20s%s\n' '--timezone' 'See "-z" short-option'
+      printf '\t%-20s%s\n' '--use-submgr' 'Do not disable subscription-manager service'
    )
    exit "${SCRIPTEXIT}"
 }
@@ -85,8 +88,9 @@ function CleanHistory {
 
 # Set up fstab
 function CreateFstab {
-   local CHROOTDEV
-   local CHROOTFSTYP
+   local    CHROOTDEV
+   local    CHROOTFSTYP
+   local -a SWAP_DEVS
    CHROOTDEV="$( findmnt -cnM "${CHROOTMNT}" -o SOURCE )"
    CHROOTFSTYP="$( findmnt -cnM "${CHROOTMNT}" -o FSTYPE )"
 
@@ -118,6 +122,72 @@ function CreateFstab {
         err_exit "Failed setting up /etc/fstab"
    fi
 
+   # Add any swaps to fstab
+   mapfile -t SWAP_DEVS < <( blkid | awk -F: '/TYPE="swap"/{ print $1 }' )
+   for SWAP in "${SWAP_DEVS[@]}"
+   do
+       if [[ $( grep -q "$( readlink -f "${SWAP}" )" /proc/swaps )$? -eq 0 ]]
+       then
+          err_exit "${SWAP} is already a mounted swap-dev. Skipping" NONE
+          continue
+       else
+           err_exit "Adding ${SWAP} to ${CHROOTMNT}/etc/fstab" NONE
+           printf '%s\tnone\tswap\tdefaults\t0 0\n' "${SWAP}" \
+               >> "${CHROOTMNT}/etc/fstab" || \
+               err_exit "Failed adding ${SWAP} to ${CHROOTMNT}/etc/fstab"
+           err_exit "Success" NONE
+      fi
+   done
+
+   # Add EFI-supporting partitions as necessary
+   if [[ -d /sys/firmware/efi ]]
+   then
+     # Add /boot partition to fstab
+     BOOT_PART="$(
+       grep "${CHROOTMNT}/boot " /proc/mounts | \
+       sed 's/ /:/g'
+     )"
+     if [[ ${BOOT_PART} =~ ":xfs:" ]]
+     then
+       err_exit "Adding XFS-formatted /boot filesystem to fstab" NONE
+       BOOT_LABEL="$(
+         xfs_admin -l "${BOOT_PART//:*/}" | \
+         sed -e 's/"$//' -e 's/^.*"//'
+       )"
+       printf 'LABEL=%s\t/boot\txfs\tdefaults,rw\t0 0\n' "${BOOT_LABEL}" >> \
+         "${CHROOTMNT}/etc/fstab" || \
+         err_exit "Failed adding '/boot' to /etc/fstab"
+     elif [[ ${BOOT_PART} =~ ":ext"[2-4]":" ]]
+     then
+       err_exit "Adding EXTn-formatted /boot filesystem to fstab" NONE
+       BOOT_LABEL="$(
+         e2label "${BOOT_PART//:*/}"
+       )"
+       # shellcheck disable=SC2001
+       BOOT_FSTYP="$(
+         sed 's/\s\s*/:/g' <<< "${BOOT_PART}" | \
+         cut -d ':' -f 3
+       )"
+       printf 'LABEL=%s\t/boot\t%s\tdefaults,rw\t0 0\n' \
+         "${BOOT_LABEL}" "${BOOT_FSTYP}" >> "${CHROOTMNT}/etc/fstab" || \
+         err_exit "Failed adding '/boot' to /etc/fstab"
+     fi
+
+     # Add /boot/efi partition to fstab
+     err_exit "Adding /boot/efi filesystem to fstab" NONE
+     UEFI_PART="$(
+       grep "${CHROOTMNT}/boot/efi " /proc/mounts | \
+       sed 's/ /:/g'
+     )"
+     UEFI_LABEL="$(
+       fatlabel "${UEFI_PART//:*/}" | tail -1
+     )"
+     printf 'LABEL=%s\t/boot/efi\tvfat\tdefaults,rw\t0 0\n' "${UEFI_LABEL}" >> \
+       "${CHROOTMNT}/etc/fstab" || \
+       err_exit "Failed adding '/boot/efi' to /etc/fstab"
+   fi
+
+
    # Set an SELinux label
    if [[ -d ${CHROOTMNT}/sys/fs/selinux ]]
    then
@@ -144,7 +214,7 @@ function ConfigureCloudInit {
    else
       # Ensure passwords *can* be used with SSH
       err_exit "Allow password logins to SSH..." NONE
-      sed -i -e '/^ssh_pwauth/s/0$/1/' "${CLOUDCFG}" || \
+      sed -i -e '/^ssh_pwauth/s/\(false\|0\)$/true/' "${CLOUDCFG}" || \
         err_exit "Failed allowing password logins"
 
       # Delete current "system_info:" block
@@ -160,9 +230,9 @@ function ConfigureCloudInit {
          printf "    lock_passwd: true\n"
          printf "    gecos: Local Maintenance User\n"
          printf "    groups: [wheel, adm]\n"
-         printf "    sudo: [ 'ALL=(root) NOPASSWD:ALL' ]\n"
+         printf "    sudo: ['ALL=(root) TYPE=sysadm_t ROLE=sysadm_r NOPASSWD:ALL']\n"
          printf "    shell: /bin/bash\n"
-         printf "    selinux_user: unconfined_u\n"
+         printf "    selinux_user: staff_u\n"
          printf "  distro: rhel\n"
          printf "  paths:\n"
          printf "    cloud_dir: /var/lib/cloud\n"
@@ -273,7 +343,10 @@ function ClipPartition {
 function GrubSetup {
    local CHROOTDEV
    local CHROOTKRN
+   local CHROOT_OS_NAME
+   local EFI_DEV
    local GRUBCMDLINE
+   local GRUB_CFG
    local ROOTTOK
    local VGCHECK
 
@@ -336,14 +409,30 @@ function GrubSetup {
 
    fi
 
+   # Get name of OS installed into chroot-env
+   # shellcheck disable=SC2016
+   CHROOT_OS_NAME="$(
+     chroot "${CHROOTMNT}" \
+       awk -F '=' '/^REDHAT_BUGZILLA_PRODUCT=/{ print $2 }' \
+         /etc/os-release | \
+     sed 's/"//g'
+   )"
+
+   if [[ -z ${CHROOT_OS_NAME:-} ]]
+   then
+     CHROOT_OS_NAME="Generic Linux"
+   fi
+
    # Assemble string for GRUB_CMDLINE_LINUX value
    GRUBCMDLINE="${ROOTTOK} "
    GRUBCMDLINE+="crashkernel=auto "
    GRUBCMDLINE+="vconsole.keymap=us "
    GRUBCMDLINE+="vconsole.font=latarcyrheb-sun16 "
-   GRUBCMDLINE+="console=tty0 "
+   GRUBCMDLINE+="console=tty1 "
    GRUBCMDLINE+="console=ttyS0,115200n8 "
+   GRUBCMDLINE+="rd.blacklist=nouveau "
    GRUBCMDLINE+="net.ifnames=0 "
+   GRUBCMDLINE+="nvme_core.io_timeout=4294967295 "
    if [[ ${FIPSDISABLE} == "true" ]]
    then
       GRUBCMDLINE+="fips=0"
@@ -353,10 +442,10 @@ function GrubSetup {
    err_exit "Writing default/grub file..." NONE
    (
       printf 'GRUB_TIMEOUT=%s\n' "${GRUBTMOUT}"
-      printf 'GRUB_DISTRIBUTOR="CentOS Linux"\n'
+      printf 'GRUB_DISTRIBUTOR="%s"\n' "${CHROOT_OS_NAME}"
       printf 'GRUB_DEFAULT=saved\n'
       printf 'GRUB_DISABLE_SUBMENU=true\n'
-      printf 'GRUB_TERMINAL="serial console"\n'
+      printf 'GRUB_TERMINAL_OUTPUT="console"\n'
       printf 'GRUB_SERIAL_COMMAND="serial --speed=115200"\n'
       printf 'GRUB_CMDLINE_LINUX="%s"\n' "${GRUBCMDLINE}"
       printf 'GRUB_DISABLE_RECOVERY=true\n'
@@ -365,29 +454,88 @@ function GrubSetup {
    ) > "${CHROOTMNT}/etc/default/grub" || \
      err_exit "Failed writing default/grub file"
 
-   # Install GRUB2 bootloader
-   chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+   # Install GRUB2 bootloader when EFI not active
+   if [[ -d /sys/firmware/efi ]]
+   then
+     # Get EFI partition
+     EFI_DEV="$( grep "${CHROOTMNT}/boot/efi" /proc/mounts | sed 's/\s\s*.*//' )"
+
+     # Calculate EFI partition's base-device
+     if [[ ${EFI_DEV} == "/dev/nvme"* ]]
+     then
+       EFI_DEV="${EFI_DEV//p*/}"
+     fi
+
+     # Install EFI boot-manager content
+     # shellcheck disable=SC1004
+     chroot "${CHROOTMNT}" bash -c '
+       /sbin/efibootmgr \
+         -c \
+         -d '"${EFI_DEV}"' \
+         -p 1 \
+         -l \\EFI\\redhat\\shimx64.efi \
+         -L '"${CHROOT_OS_NAME}"'
+     '
+     GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+   else
+     # Install legacy GRUB2 boot-content
+     chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
+     GRUB_CFG="/boot/grub2/grub.cfg"
+   fi
 
    # Install GRUB config-file
    err_exit "Installing GRUB config-file..." NONE
    chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-mkconfig \
-      > /boot/grub2/grub.cfg" || \
+      > ${GRUB_CFG}" || \
      err_exit "Failed to install GRUB config-file"
 
-   # Make intramfs in chroot-dev
-   if [[ ${FIPSDISABLE} == "UNDEF" ]]
+   # Fix GRUB-config link as necessary
+   if [[ -L /etc/grub2.cfg ]] && [[ ! -e $( readlink -f /etc/grub2.cfg ) ]]
    then
-      err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
-      chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
-        err_exit "Failed to enable FIPS mode"
+     rm /etc/grub2.cfg
+     ln -s "${GRUB_CFG}" /etc/grub2.cfg
+   fi
+
+   # Make intramfs in chroot-dev
+   if [[ ${FIPSDISABLE} != "true" ]]
+   then
+     FipsSetup
    else
       err_exit "Installing initramfs..." NONE
       chroot "${CHROOTMNT}" dracut -fv "/boot/initramfs-${CHROOTKRN}.img" \
          "${CHROOTKRN}" || \
         err_exit "Failed installing initramfs"
    fi
+}
 
+# Set up GRUB to support both BIOS- and EFI-boot
+function GrubSetup_DualMode {
+  err_exit "Installing helper-script..." NONE
+  install -bDm 0755  "$( dirname "${0}" )/DualMode-GRUBsetup.sh" \
+    "${CHROOTMNT}/root" || err_exit "Failed installing helper-script"
+  err_exit "SUCCESS" NONE
 
+  err_exit "Running helper-script..." NONE
+  chroot "${CHROOTMNT}" /root/DualMode-GRUBsetup.sh || \
+    err_exit "Failed running helper-script..."
+  err_exit "SUCCESS" NONE
+
+  err_exit "Cleaning up helper-script..." NONE
+  rm "${CHROOTMNT}/root/DualMode-GRUBsetup.sh" || \
+    err_exit "Failed removing helper-script..."
+  err_exit "SUCCESS" NONE
+
+  # Make intramfs in chroot-dev
+  if [[ ${FIPSDISABLE} != "true" ]]
+  then
+    FipsSetup
+  fi
+}
+
+function FipsSetup {
+  err_exit "Attempting to enable FIPS mode in ${CHROOTMNT}..." NONE
+  chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --enable" || \
+    err_exit "Failed to enable FIPS mode"
 }
 
 # Configure SELinux
@@ -408,6 +556,12 @@ function SELsetup {
       chroot "${CHROOTMNT}" /sbin/fixfiles -f relabel || \
         err_exit "Errors running fixfiles"
    else
+      # The selinux-policy RPM's %post script currently is not doing The Right
+      # Thing (TM), necessitating the creation of a /.autorelabel file in this
+      # section. Have filed BugZilla ID #2208282 with Red Hat
+      touch "${CHROOTMNT}/.autorelabel" || \
+        err_exit "Failed creating /.autorelabel file"
+
       err_exit "SELinux not available" NONE
    fi
 
@@ -456,12 +610,33 @@ function authselectInit {
    err_exit "Succeeded initializing authselect" NONE
 }
 
+# Disable subscription-manager
+function DisableSubscriptionManager {
+  local YUM_CONF
+
+  # Early exit if user *wants* subscription-manager enabled or the edge-case
+  # where its RPM isn't even installed
+  if [[ ${SUBSCRIPTION_MANAGER} == "enabled" ]] ||
+     [[ $( rpm -q --quiet subscription-manager )$? -ne 0 ]]
+  then
+     return
+  fi
+
+  YUM_CONF=$( readlink -f /etc/yum/pluginconf.d/subscription-manager.conf )
+
+  err_exit "Attempting to disable subscription-manager service... " NONE
+  chroot "${CHROOTMNT}" /bin/sed -i '/^enabled/s/1$/0/' "${YUM_CONF}" || \
+    err_exit "Failed to disable subscription-manager service" 1
+  err_exit "Succeeded disabling subscription-manager service" NONE
+}
+
+
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
    -o Ff:hm:t:Xz: \
-   --long cross-distro,fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone \
+   --long cross-distro,fstype:,grub-timeout:,help,mountpoint:,no-fips,no-tmpfs,timezone,use-submgr \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -472,6 +647,10 @@ eval set -- "${OPTIONBUFR}"
 while true
 do
    case "$1" in
+      --use-submgr)
+           SUBSCRIPTION_MANAGER="enabled"
+           shift 1;
+           ;;
       -F|--no-fips)
            FIPSDISABLE="true"
            shift 1;
@@ -566,6 +745,9 @@ SetupTmpfs
 # Configure logging
 ConfigureLogging
 
+# Turn of spurious 'entitlement server' warnings
+DisableSubscriptionManager
+
 # Configure networking
 ConfigureNetworking
 
@@ -578,8 +760,18 @@ TimeSetup
 # Configure cloud-init
 ConfigureCloudInit
 
-# Do GRUB2 setup tasks
+## Do GRUB2 setup tasks ##
+# Basic Setup
 GrubSetup
+
+# Legacy (BIOS) boot-mode setup
+if [[ -d /sys/firmware/efi ]]
+then
+  GrubSetup_DualMode
+fi
+
+# Clean up fstab
+sed -i '/^\/dev\/.*\s\s*\/boot/d' "${CHROOTMNT}/etc/fstab"
 
 # Initialize authselect subsystem
 authselectInit

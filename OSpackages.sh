@@ -7,6 +7,17 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
+GRUBPKGS_X86=(
+      efibootmgr
+      grub2-efi-x64
+      grub2-efi-x64-modules
+      grub2-pc
+      grub2-pc-modules
+      grub2-tools
+      grub2-tools-efi
+      grub2-tools-minimal
+      shim-x64
+)
 MINXTRAPKGS=(
       chrony
       cloud-init
@@ -250,8 +261,11 @@ function PrepChroot {
 
    # Install staged RPMs
    err_exit "Installing staged RPMs..." NONE
-   rpm --force --root "${CHROOTMNT}" -ivh --nodeps /tmp/*.rpm || \
+   rpm --force --root "${CHROOTMNT}" -ivh --nodeps --nopre /tmp/*.rpm || \
      err_exit "Failed installing staged RPMs"
+
+   # Try to keep the yum RPM's reinstall from barfing on Azure
+   AzureYumPluginDirCollision
 
    # Install dependences for base RPMs
    err_exit "Installing base RPM's dependences..." NONE
@@ -312,7 +326,16 @@ function MainInstall {
    fi
 
    # Add extra packages to include-list (array)
-   INCLUDEPKGS=( "${INCLUDEPKGS[@]}" "${MINXTRAPKGS[@]}" "${EXTRARPMS[@]}" )
+   INCLUDEPKGS=(
+     "${INCLUDEPKGS[@]}"
+     "${MINXTRAPKGS[@]}"
+     "${EXTRARPMS[@]}"
+   )
+
+   if [[ -d /sys/firmware/efi ]]
+   then
+     INCLUDEPKGS+=( "${GRUBPKGS_X86[@]}" )
+   fi
 
    # Remove excluded packages from include-list
    for EXCLUDE in ${EXCLUDEPKGS[*]} ${EXTRAEXCLUDE[*]}
@@ -355,13 +378,43 @@ function FetchCustomRepos {
 
 }
 
+# Prevent Azure-specific failure
+function AzureYumPluginDirCollision {
+  local AZURE_ASSET_TAG
+  local YUM_PROBLEM_DIR
+
+  # The asset-tag value for dmidecode see reference:
+  #   https://learn.microsoft.com/en-us/azure/automation/troubleshoot/update-agent-issues-linux#dmidecode-check
+  # For ID string-value
+  AZURE_ASSET_TAG="7783-7084-3265-9085-8269-3286-77"
+
+  # The directory that the Azure-RHUI version of yum doesn't like
+  YUM_PROBLEM_DIR="${CHROOTMNT}/etc/yum/pluginconf.d"
+
+  # Check if dmidecode RPM is installed (return if not)
+  if [[ $( rpm -q dmidecode --quiet )$? -ne 0 ]]
+  then
+    err_exit "The dmidecode utility is not available. Cannot check virtualization-platform" NONE
+    return
+  fi
+
+  # Nuke YUM_PROBLEM_DIR if present and we're on Azure
+  if [[ $( dmidecode --string chassis-asset-tag ) == "${AZURE_ASSET_TAG}" ]] &&
+     [[ -d ${YUM_PROBLEM_DIR} ]]
+  then
+    err_exit "Deleting ${YUM_PROBLEM_DIR} on an Azure build-host..." NONE
+    rm -rf "${YUM_PROBLEM_DIR}" || err_exit "Failed deleting ${YUM_PROBLEM_DIR}. Aborting... " 1
+    err_exit "Successfully deleted ${YUM_PROBLEM_DIR}" NONE
+  fi
+}
+
 
 ######################
 ## Main program-flow
 ######################
 OPTIONBUFR=$( getopt \
    -o a:e:Fg:hM:m:r:Xx: \
-   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
+   --long cross-distro,exclude-rpms:,extra-rpms:,help,mountpoint:,pkg-manifest:,repo-activation:,repo-rpms:,rpm-group:,setup-dnf: \
    -n "${PROGNAME}" -- "$@")
 
 eval set -- "${OPTIONBUFR}"
@@ -505,3 +558,10 @@ PrepChroot
 
 # Install the desired RPM-group or manifest-file
 MainInstall
+
+## Ensure desired repos are activated in the AMI ##
+# disable any repo that might interfere
+chroot "${CHROOTMNT}" /usr/bin/yum-config-manager --disable "*"
+
+# Enable the requested list of repos
+chroot "${CHROOTMNT}" /usr/bin/yum-config-manager --enable "${OSREPOS}"
