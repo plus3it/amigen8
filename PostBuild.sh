@@ -476,7 +476,16 @@ function GrubSetup {
          -l \\EFI\\redhat\\shimx64.efi \
          -L '"${CHROOT_OS_NAME}"'
      '
-     GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+     
+     # Set EFI grub.cfg location based on distro
+     case "$( rpm -qf /etc/os-release --qf '%{name}' )" in
+       centos-stream-release)
+           GRUB_CFG="/boot/efi/EFI/centos/grub.cfg"
+           ;;
+       *)
+           GRUB_CFG="/boot/efi/EFI/redhat/grub.cfg"
+           ;;
+     esac
    else
      # Install legacy GRUB2 boot-content
      chroot "${CHROOTMNT}" /bin/bash -c "/sbin/grub2-install ${CHROOTDEV}"
