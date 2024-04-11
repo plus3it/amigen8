@@ -5,7 +5,8 @@ set -eu -o pipefail
 #
 #################################################################
 PROGNAME=$(basename "$0")
-BOOTDEVSZ="${BOOTDEVSZ:-400}"
+BOOTDEVSZMIN="1024"
+BOOTDEVSZ="${BOOTDEVSZ:-${BOOTDEVSZMIN}}"
 UEFIDEVSZ="${UEFIDEVSZ:-100}"
 CHROOTDEV="${CHROOTDEV:-UNDEF}"
 DEBUG="${DEBUG:-UNDEF}"
@@ -54,7 +55,7 @@ function UsageMsg {
    (
       echo "Usage: ${0} [GNU long option] [option] ..."
       echo "  Options:"
-      printf '\t%-4s%s\n' '-b' 'Size of /boot partition (default: 400MiB)'
+      printf '\t%-4s%s\n' '-b' 'Size of /boot partition (default/minimum: 1024MiB)'
       printf '\t%-4s%s\n' '-B' 'Boot-block size (default: 16MiB)'
       printf '\t%-4s%s\n' '-d' 'Base dev-node used for build-device'
       printf '\t%-4s%s\n' '-f' 'Filesystem-type used for root filesystems (default: xfs)'
@@ -378,6 +379,10 @@ do
                   ;;
                *)
                   BOOTDEVSZ=${2}
+                  if [[ ${BOOTDEVSZ} -lt ${BOOTDEVSZMIN} ]]
+                  then
+                     err_exit "Requested size for '/boot' filesystem is too small" 1
+                  fi
                   shift 2;
                   ;;
             esac
