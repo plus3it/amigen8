@@ -7,6 +7,7 @@ set -eu -o pipefail
 PROGNAME=$(basename "$0")
 CHROOTMNT="${CHROOT:-/mnt/ec2-root}"
 DEBUG="${DEBUG:-UNDEF}"
+DNF_PROXY="${HTTP_PROXY:-}"
 
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG:-} == "UNDEF" ]]
@@ -46,9 +47,12 @@ function AzCliSetup {
   if [[ $( rpm -q --quiet azure-cli )$? -ne 0 ]]
   then
     err_exit "Attempting to install azure-cli from Yum repo" NONE
-    dnf --installroot="${CHROOTMNT}" \
-      install --assumeyes --quiet azure-cli || \
+    (
+      export ALL_PROXY="${DNF_PROXY}"
+      dnf --installroot="${CHROOTMNT}" \
+        install --assumeyes --quiet azure-cli || \
       err_exit "WARNING: Azure CLI not installed" NONE
+    )
     err_exit "Success!" NONE
   fi
 }
