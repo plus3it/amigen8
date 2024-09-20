@@ -115,11 +115,14 @@ function CreateFstab {
    else
       err_exit "Setting up /etc/fstab for LVMed chroot-dev..." NONE
       grep "${CHROOTMNT}" /proc/mounts | \
-         grep -w "${FSTYPE}" | \
+      grep -w "${FSTYPE}" | \
       sed -e "s/${FSTYPE}.*/${FSTYPE}\tdefaults,rw\t0 0/" \
           -e "s#${CHROOTMNT}\s#/\t#" \
           -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
         err_exit "Failed setting up /etc/fstab"
+
+      sed -Ei "s#(/var/log/audit.*)defaults,rw(.*)#\1defaults,nofail,rw\2#" "${CHROOTMNT}/etc/fstab" || \
+        err_exit "Failed setting nofail on /var/log/audit in /etc/fstab"
    fi
 
    # Add any swaps to fstab
@@ -476,7 +479,7 @@ function GrubSetup {
          -l \\EFI\\redhat\\shimx64.efi \
          -L '"${CHROOT_OS_NAME}"'
      '
-     
+
      # Set EFI grub.cfg location based on distro
      case "$( rpm -qf /etc/os-release --qf '%{name}' )" in
        centos-stream-release)
