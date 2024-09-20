@@ -121,7 +121,7 @@ function CreateFstab {
           -e "s#${CHROOTMNT}##" >> "${CHROOTMNT}/etc/fstab" || \
         err_exit "Failed setting up /etc/fstab"
 
-      sed -Ei "s#(/var/log/audit.*)defaults,rw(.*)#\1defaults,nofail,rw\2#" "${CHROOTMNT}/etc/fstab" || \
+      sed -Ei "s#(/var/.*)defaults,rw(.*)#\1defaults,nofail,rw\2#" "${CHROOTMNT}/etc/fstab" || \
         err_exit "Failed setting nofail on /var/log/audit in /etc/fstab"
    fi
 
