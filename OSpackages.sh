@@ -226,13 +226,13 @@ function PrepChroot {
    if [[ -n "${DNF_ARRAY:-}" ]]
    then
       err_exit "Execute DNF hack..." NONE
-      for DNF_ELEM in ${DNF_ARRAY[*]}
+      for DNF_ELEM in "${DNF_ARRAY[@]}"
       do
          DNF_FILE=${DNF_ELEM//=*/}
          DNF_VALUE=${DNF_ELEM//*=/}
 
          err_exit "Creating ${CHROOTMNT}/etc/dnf/vars/${DNF_FILE}... " NONE
-         install -bDm 0644 <( 
+         install -bDm 0644 <(
            printf "%s" "${DNF_VALUE}"
          ) "${CHROOTMNT}/etc/dnf/vars/${DNF_FILE}" || err_exit Failed
          err_exit "Success" NONE
@@ -338,7 +338,7 @@ function MainInstall {
    fi
 
    # Remove excluded packages from include-list
-   for EXCLUDE in ${EXCLUDEPKGS[*]} ${EXTRAEXCLUDE[*]}
+   for EXCLUDE in "${EXCLUDEPKGS[@]}" "${EXTRAEXCLUDE[@]}"
    do
        INCLUDEPKGS=( "${INCLUDEPKGS[@]//*${EXCLUDE}*}" )
    done
@@ -349,7 +349,7 @@ function MainInstall {
 
    # Verify installation
    err_exit "Verifying installed RPMs" NONE
-   for RPM in ${INCLUDEPKGS[*]}
+   for RPM in "${INCLUDEPKGS[@]}"
    do
       err_exit "Checking presence of ${RPM}..." NONE
       chroot "${CHROOTMNT}" bash -c "rpm -q ${RPM}" || \
