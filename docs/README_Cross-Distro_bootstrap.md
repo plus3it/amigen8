@@ -169,15 +169,15 @@ When starting from an official Red Hat 8 AMI from the AWS MarketPlace (i.e., one
     ~~~
     # systemctl status -l tmp.mount
     ● tmp.mount - Temporary Directory (/tmp)
-       Loaded: loaded (/usr/lib/systemd/system/tmp.mount; enabled; vendor preset: disabled)
-       Active: active (mounted) since Tue 2021-12-21 12:52:26 UTC; 3h 32min ago
-        Where: /tmp
-         What: tmpfs
-         Docs: man:hier(7)
-               https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
-        Tasks: 0 (limit: 22949)
-       Memory: 4.0K
-       CGroup: /system.slice/tmp.mount
+        Loaded: loaded (/usr/lib/systemd/system/tmp.mount; enabled; vendor preset: disabled)
+        Active: active (mounted) since Tue 2021-12-21 12:52:26 UTC; 3h 32min ago
+          Where: /tmp
+            What: tmpfs
+            Docs: man:hier(7)
+                https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+          Tasks: 0 (limit: 22949)
+        Memory: 4.0K
+        CGroup: /system.slice/tmp.mount
     ~~~
     And:
     ~~~
