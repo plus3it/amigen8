@@ -1,2 +1,14 @@
 yum-chroot.conf
 *.rpm
+
+# tardigrade-ci
+.tardigrade-ci
+tardigrade-ci/
+
+# python cache
+__pycache__
+.python-version
+.pytest_cache
+
+#macOS local dir meta file
+.DS_Store

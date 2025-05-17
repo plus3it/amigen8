@@ -11,67 +11,67 @@ DEBUG="${DEBUG:-UNDEF}"
 # Make interactive-execution more-verbose unless explicitly told not to
 if [[ $( tty -s ) -eq 0 ]] && [[ ${DEBUG:-} == "UNDEF" ]]
 then
-   DEBUG="true"
+    DEBUG="true"
 fi
 
 
 # Error handler function
 function err_exit {
-   local ERRSTR
-   local ISNUM
-   local SCRIPTEXIT
+    local ERRSTR
+    local ISNUM
+    local SCRIPTEXIT
 
-   ERRSTR="${1}"
-   ISNUM='^[0-9]+$'
-   SCRIPTEXIT="${2:-1}"
+    ERRSTR="${1}"
+    ISNUM='^[0-9]+$'
+    SCRIPTEXIT="${2:-1}"
 
-   if [[ ${DEBUG:-} == true ]]
-   then
-      # Our output channels
-      logger -i -t "${PROGNAME}" -p kern.crit -s -- "${ERRSTR}"
-   else
-      logger -i -t "${PROGNAME}" -p kern.crit -- "${ERRSTR}"
-   fi
+    if [[ ${DEBUG:-} == true ]]
+    then
+        # Our output channels
+        logger -i -t "${PROGNAME}" -p kern.crit -s -- "${ERRSTR}"
+    else
+        logger -i -t "${PROGNAME}" -p kern.crit -- "${ERRSTR}"
+    fi
 
-   # Only exit if requested exit is numerical
-   if [[ ${SCRIPTEXIT} =~ ${ISNUM} ]]
-   then
-      exit "${SCRIPTEXIT}"
-   fi
+    # Only exit if requested exit is numerical
+    if [[ ${SCRIPTEXIT} =~ ${ISNUM} ]]
+    then
+        exit "${SCRIPTEXIT}"
+    fi
 }
 
 function AzCliSetup {
-  # This function does not have to succeed
+    # This function does not have to succeed
 
-  if [[ $( rpm -q --quiet azure-cli )$? -ne 0 ]]
-  then
-    err_exit "Attempting to install azure-cli from Yum repo" NONE
-    dnf --installroot="${CHROOTMNT}" \
-      install --assumeyes --quiet azure-cli || \
-      err_exit "WARNING: Azure CLI not installed" NONE
-    err_exit "Success!" NONE
-  fi
+    if [[ $( rpm -q --quiet azure-cli )$? -ne 0 ]]
+    then
+      err_exit "Attempting to install azure-cli from Yum repo" NONE
+      dnf --installroot="${CHROOTMNT}" \
+        install --assumeyes --quiet azure-cli || \
+        err_exit "WARNING: Azure CLI not installed" NONE
+      err_exit "Success!" NONE
+    fi
 }
 
 function MonitorAgentSetup {
-  # This function does not have to succeed
+    # This function does not have to succeed
 
-  local STATUS_MSG
+    local STATUS_MSG
 
-  # Check compatible FIPS-mode setting Per:
-  #   https://learn.microsoft.com/en-us/azure/azure-monitor/agents/agent-linux?tabs=wrapper-script#supported-linux-hardening
-  # Azure Log Analytics Agent is not supported on EL8 when FIPS mode is active
-  if [[
-    $( chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --check" ) == \
-    "FIPS mode is enabled."
-  ]]
-  then
-    STATUS_MSG="Azure Monitor Agent not supported on EL8"
-    STATUS_MSG="${STATUS_MSG} when FIPS-mode is enabled."
-    STATUS_MSG="${STATUS_MSG} See vendor-documentation."
-    err_exit "${STATUS_MSG}" NONE
-    return 0
-  fi
+    # Check compatible FIPS-mode setting Per:
+    #   https://learn.microsoft.com/en-us/azure/azure-monitor/agents/agent-linux?tabs=wrapper-script#supported-linux-hardening
+    # Azure Log Analytics Agent is not supported on EL8 when FIPS mode is active
+    if [[
+      $( chroot "${CHROOTMNT}" /bin/bash -c "fips-mode-setup --check" ) == \
+      "FIPS mode is enabled."
+    ]]
+    then
+      STATUS_MSG="Azure Monitor Agent not supported on EL8"
+      STATUS_MSG="${STATUS_MSG} when FIPS-mode is enabled."
+      STATUS_MSG="${STATUS_MSG} See vendor-documentation."
+      err_exit "${STATUS_MSG}" NONE
+      return 0
+    fi
 }
 
 function WaagentSetup {
