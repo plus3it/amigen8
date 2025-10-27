@@ -240,7 +240,7 @@ function PrepChroot {
     fi
 
     # Clean out stale RPMs
-    if [[ $( stat /tmp/*.rpm > /dev/null 2>&1 )$? -eq 0 ]]
+    if stat /tmp/*.rpm > /dev/null 2>&1
     then
         err_exit "Cleaning out stale RPMs..." NONE
         rm -f /tmp/*.rpm || \
