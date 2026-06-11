@@ -97,13 +97,24 @@ function ExemptFapolicyd {
     RULE_DIR="/etc/fapolicyd/rules.d"
     RULE_FILE="${RULE_DIR}/30-aws.rules"
 
+    # In case bootstrapper already has rule-file
+    if [[ -e "${CHROOTMNT}${RULE_FILE}" ]]
+    then
+      printf "Nuking redundtant %s... " "${RULE_FILE}"
+      rm "${CHROOTMNT}${RULE_FILE}" || ( echo "FAILED" ; exit 1 )
+      echo "Done"
+    fi
+
+    # Create RULE_DIR as needed
     chroot "${CHROOTMNT}" install -dDm 0755 -o root -g root "${RULE_DIR}"
+
+    # Create RULE_FILE
     chroot "${CHROOTMNT}" install -bDm 0644 -o root -g root <(
-        printf "allow perm=any all : dir=/usr/local/aws-cli/v2/ "
-        printf "type=application/x-executable trust 1\n"
-        printf "allow perm=any all : dir=/usr/local/aws-cli/v2/ "
-        printf "type=application/x-sharedlib trust 1\n"
+      echo "allow perm=any all : path=/usr/local/bin/aws"
+      echo "allow perm=any all : dir=/usr/local/aws-cli/v2/"
+      echo "allow perm=any comm=aws : dir=/var/tmp/"
     ) "${RULE_FILE}"
+
 }
 
 # Install AWS CLI version 1.x
