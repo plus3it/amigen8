@@ -1,0 +1,110 @@
+name: Build images
+
+on:
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+    inputs:
+      SPEL_VERSION:
+        description: 'SPEL_VERSION: Version to build (defaults to a date+sha derived value)'
+        type: string
+      SPEL_FORCE:
+        description: 'SPEL_FORCE: Whether to force deregister an image of the same name'
+        type: boolean
+        default: false
+      SPEL_BUILDERS:
+        description: |
+          SPEL_BUILDERS: JSON-encoded list of Packer builds to run, e.g.
+          ["amazon-ebssurrogate.minimal-ol-8-hvm", "amazon-ebssurrogate.minimal-rhel-8-hvm"]
+        type: string
+      SPEL_PROJECTS:
+        description: |
+          SPEL_PROJECTS: JSON-encoded list of Codebuild Projects to run, e.g.
+          ["spel-commercial", "spel-govcloud"]
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    if: contains(github.event.review.body, '/build') || github.event_name == 'workflow_dispatch'
+    env:
+      SPEL_BUILDERS: >-
+        [
+          "amazon-ebssurrogate.minimal-ol-8-hvm",
+          "amazon-ebssurrogate.minimal-rhel-8-hvm"
+        ]
+      SPEL_PROJECTS: >-
+        [
+          "spel-commercial",
+          "spel-govcloud"
+        ]
+    outputs:
+      version: ${{ steps.variables.outputs.version }}
+      force: ${{ steps.variables.outputs.force }}
+      builders: ${{ steps.variables.outputs.builders }}
+      projects: ${{ steps.variables.outputs.projects }}
+      amigen8_source: ${{ steps.variables.outputs.amigen8_source }}
+    steps:
+      - name: Set build inputs
+        id: variables
+        env:
+          IS_PR_REVIEW: ${{ github.event_name == 'pull_request_review' }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_CLONE_URL: ${{ github.event.pull_request.head.repo.clone_url }}
+          PUSH_SHA: ${{ github.sha }}
+          PUSH_REF_NAME: ${{ github.ref_name }}
+          PUSH_CLONE_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          BUILDERS_INPUT: ${{ inputs.SPEL_BUILDERS }}
+          PROJECTS_INPUT: ${{ inputs.SPEL_PROJECTS }}
+          FORCE_INPUT: ${{ inputs.SPEL_FORCE }}
+          VERSION_INPUT: ${{ inputs.SPEL_VERSION }}
+        run: |
+          # amigen8-build.sh clones AMIGEN8_SOURCE with `git clone --branch`,
+          # which requires a real branch/tag name, not a commit sha.
+          if [[ "$IS_PR_REVIEW" == 'true' ]]; then
+            amigen8_url="$PR_HEAD_CLONE_URL"
+            amigen8_branch="$PR_HEAD_REF"
+            short_sha="$(cut -c1-7 <<< "$PR_HEAD_SHA")"
+            default_version="$(date +%Y.%m)-pr${PR_NUMBER}-${short_sha}"
+          else
+            amigen8_url="$PUSH_CLONE_URL"
+            amigen8_branch="$PUSH_REF_NAME"
+            short_sha="$(cut -c1-7 <<< "$PUSH_SHA")"
+            default_version="$(date +%Y.%m)-${short_sha}"
+          fi
+
+          amigen8_source="$(jq -nc --arg url "$amigen8_url" --arg branch "$amigen8_branch" '{url: $url, branch: $branch}')"
+
+          {
+            echo "builders=${BUILDERS_INPUT:-$(jq -c <<< "$SPEL_BUILDERS")}"
+            echo "projects=${PROJECTS_INPUT:-$(jq -c <<< "$SPEL_PROJECTS")}"
+            echo "force=${FORCE_INPUT:-false}"
+            echo "version=${VERSION_INPUT:-${default_version}}"
+            echo "amigen8_source=${amigen8_source}"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    # GitHub statically validates the permissions of every job in the called
+    # reusable workflow's graph -- including spel's `release-pr` job, which
+    # declares `contents: write, pull-requests: write` -- against the ceiling
+    # granted here, before any `if:` conditions are evaluated. `release-pr`
+    # only runs for spel's own `schedule`/`SPEL_RELEASE` triggers (never for
+    # amigen8), but the ceiling must still cover it or the call is rejected
+    # at validation time. See https://github.com/actions/runner/issues/4151
+    # and https://github.com/orgs/community/discussions/63736.
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: plus3it/spel/.github/workflows/build.yml@e47e6d46571c90a887269aa0876b8edc028bd6ba
+    with:
+      SPEL_VERSION: ${{ needs.prepare.outputs.version }}
+      SPEL_FORCE: ${{ fromJSON(needs.prepare.outputs.force) }}
+      SPEL_BUILDERS: ${{ needs.prepare.outputs.builders }}
+      SPEL_PROJECTS: ${{ needs.prepare.outputs.projects }}
+      AMIGEN8_SOURCE: ${{ needs.prepare.outputs.amigen8_source }}
