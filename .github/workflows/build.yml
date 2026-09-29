@@ -23,10 +23,6 @@ on:
           ["spel-commercial", "spel-govcloud"]
         type: string
 
-concurrency:
-  group: build-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
