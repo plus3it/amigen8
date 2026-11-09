@@ -101,7 +101,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: plus3it/spel/.github/workflows/build.yml@cc55d1d0e5af643d441e546d991057dff61442d2
+    uses: plus3it/spel/.github/workflows/build.yml@55fa5e86a774e703d8b361518aad9e305f80162c
     with:
       SPEL_VERSION: ${{ needs.prepare.outputs.version }}
       SPEL_FORCE: ${{ fromJSON(needs.prepare.outputs.force) }}
